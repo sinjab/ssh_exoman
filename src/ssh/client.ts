@@ -13,6 +13,34 @@ import type { Result } from "../types";
 import { ErrorCode, errorResult } from "../errors";
 
 // ============================================================================
+// Passphrase Resolution
+// ============================================================================
+
+/**
+ * Resolve the passphrase for an SSH private key.
+ *
+ * Resolution order:
+ * 1. Per-host env var: SSH_PASSPHRASE_{HOST} (host alias uppercased, hyphens to underscores)
+ * 2. Global fallback: SSH_PASSPHRASE
+ *
+ * @param hostAlias - The host alias from SSH config
+ * @returns The passphrase if found, undefined otherwise
+ */
+export function getPassphrase(hostAlias: string): string | undefined {
+  // Normalize host alias: uppercase and replace hyphens with underscores
+  const normalizedHost = hostAlias.toUpperCase().replace(/-/g, "_");
+
+  // Check per-host passphrase first
+  const perHostPassphrase = process.env[`SSH_PASSPHRASE_${normalizedHost}`];
+  if (perHostPassphrase) {
+    return perHostPassphrase;
+  }
+
+  // Fall back to global passphrase
+  return process.env.SSH_PASSPHRASE;
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 

@@ -2,8 +2,8 @@
  * Tests for SSH client module
  */
 
-import { describe, test, expect } from "bun:test";
-import { connect } from "./client";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { connect, getPassphrase } from "./client";
 import type { HostConfig } from "./config-parser";
 
 describe("SSH Client", () => {
@@ -125,5 +125,69 @@ describe("SSH Client", () => {
         expect(result.error.message).toBeDefined();
       }
     });
+  });
+});
+
+describe("getPassphrase", () => {
+  // Store original env values to restore after tests
+  const originalEnv: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    // Save original values
+    originalEnv.SSH_PASSPHRASE = process.env.SSH_PASSPHRASE;
+    // Clear all passphrase env vars before each test
+    delete process.env.SSH_PASSPHRASE;
+    // Clear any per-host passphrase vars
+    Object.keys(process.env)
+      .filter(key => key.startsWith("SSH_PASSPHRASE_"))
+      .forEach(key => {
+        originalEnv[key] = process.env[key];
+        delete process.env[key];
+      });
+  });
+
+  afterEach(() => {
+    // Restore original values
+    if (originalEnv.SSH_PASSPHRASE !== undefined) {
+      process.env.SSH_PASSPHRASE = originalEnv.SSH_PASSPHRASE;
+    } else {
+      delete process.env.SSH_PASSPHRASE;
+    }
+    Object.keys(originalEnv)
+      .filter(key => key.startsWith("SSH_PASSPHRASE_"))
+      .forEach(key => {
+        if (originalEnv[key] !== undefined) {
+          process.env[key] = originalEnv[key];
+        }
+      });
+  });
+
+  test("returns per-host passphrase from SSH_PASSPHRASE_MYHOST when hostAlias is 'myhost'", () => {
+    process.env.SSH_PASSPHRASE_MYHOST = "myhost-secret";
+    const result = getPassphrase("myhost");
+    expect(result).toBe("myhost-secret");
+  });
+
+  test("returns per-host passphrase from SSH_PASSPHRASE_MY_SERVER when hostAlias is 'my-server' (hyphen converted to underscore)", () => {
+    process.env.SSH_PASSPHRASE_MY_SERVER = "server-secret";
+    const result = getPassphrase("my-server");
+    expect(result).toBe("server-secret");
+  });
+
+  test("falls back to SSH_PASSPHRASE when per-host var not set", () => {
+    process.env.SSH_PASSPHRASE = "global-secret";
+    const result = getPassphrase("unknown-host");
+    expect(result).toBe("global-secret");
+  });
+
+  test("returns undefined when no passphrase env vars are set", () => {
+    const result = getPassphrase("no-passphrase-host");
+    expect(result).toBeUndefined();
+  });
+
+  test("handles uppercase host aliases correctly (normalizes to uppercase env var)", () => {
+    process.env.SSH_PASSPHRASE_PROD_DB = "prod-secret";
+    const result = getPassphrase("PROD_DB");
+    expect(result).toBe("prod-secret");
   });
 });
