@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A TypeScript MCP server that gives AI assistants (like Claude Desktop) secure SSH capabilities — executing remote commands, transferring files, and managing background processes on remote hosts. This is a ground-up rebuild of an existing Python MCP SSH server, rethinking the architecture while maintaining feature parity.
+A TypeScript MCP server that gives AI assistants (like Claude Desktop) secure SSH capabilities — executing remote commands and managing background processes on remote hosts. The v1.0 MVP delivers a working stdio-connected server with security validation, process tracking, and full Claude Desktop integration.
 
 ## Core Value
 
@@ -12,62 +12,69 @@ AI assistants can securely execute and manage SSH commands on remote hosts throu
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ Execute SSH commands in background with process tracking (UUID-based) — v1.0
+- ✓ Retrieve command output with chunked reading support — v1.0
+- ✓ Check command status without retrieving full output — v1.0
+- ✓ Kill running background processes (SIGTERM → SIGKILL escalation) — v1.0
+- ✓ Inspect current security configuration — v1.0
+- ✓ List configured SSH hosts from ~/.ssh/config — v1.0
+- ✓ Provide interactive SSH help prompt — v1.0
+- ✓ Parse ~/.ssh/config for host resolution — v1.0
+- ✓ Command security validation (blacklist/whitelist/disabled modes) — v1.0
+- ✓ Support stdio transport (Claude Desktop integration) — v1.0
+- ✓ Structured error responses for all failure modes — v1.0
+- ✓ Structured logging — v1.0
 
 ### Active
 
-- [ ] Execute SSH commands in background with process tracking (UUID-based)
-- [ ] Retrieve command output with chunked reading support
-- [ ] Check command status without retrieving full output
-- [ ] Kill running background processes (SIGTERM → SIGKILL escalation)
 - [ ] Transfer files via SFTP (upload and download)
-- [ ] Inspect current security configuration
-- [ ] List configured SSH hosts from ~/.ssh/config
-- [ ] Provide interactive SSH help prompt
-- [ ] Parse ~/.ssh/config for host resolution
 - [ ] Connection pooling with configurable reuse and TTL
-- [ ] Command security validation (blacklist/whitelist/disabled modes)
-- [ ] Support stdio transport (Claude Desktop integration)
 - [ ] Support HTTP transport (remote MCP access)
 - [ ] Configurable timeouts per operation type
-- [ ] Structured error responses for all failure modes
-- [ ] Structured logging
+- [ ] Custom blacklist/whitelist patterns via environment variables
 
 ### Out of Scope
 
-- Mobile or web UI — this is a headless MCP server
+- Mobile or web UI — this is a headless MCP server, AI assistant IS the UI
 - Database persistence — all state is ephemeral per session
 - Multi-tenant auth — single-user server model
-- SSH agent forwarding — not in Python version scope
-- Interactive/PTY sessions — background execution only
+- SSH agent forwarding — security risk when AI controls the agent; use ProxyJump in ~/.ssh/config instead
+- Interactive/PTY sessions — MCP is request/response, background execution covers 95% of use cases
 
 ## Context
 
-- Rebuilding from a Python MCP SSH server (`mcp_ssh`) that has 107 tests, 87% coverage, 6 tools, 1 resource, 1 prompt
-- The Python version has a monolithic `server.py` (~1020 lines) — this rebuild aims for better separation of concerns
-- Using Bun as runtime instead of Node.js (per project conventions)
-- PRD.md exists as a detailed reference but architecture decisions should be rethought from scratch
-- Should study the official MCP TypeScript SDK (https://github.com/modelcontextprotocol/typescript-sdk) for best practices and idiomatic patterns
-- Bun's built-in test runner replaces Vitest/Jest
-- Bun auto-loads .env, no dotenv needed
+**Shipped v1.0 MVP:**
+- 3 phases, 10 plans executed in single day (March 7, 2026)
+- ~5,821 TypeScript LOC across 26 source files
+- 261 tests passing
+- Tech stack: Bun runtime, MCP TypeScript SDK v2, Zod 4, ssh2
+
+**Architecture highlights:**
+- Clean separation: foundation services → SSH layer → MCP integration
+- Result<T> pattern throughout for structured error handling
+- TDD approach with 4:1 test-to-code ratio
 
 ## Constraints
 
 - **Runtime**: Bun — per project conventions in CLAUDE.md
 - **Protocol**: MCP TypeScript SDK v2 (`@modelcontextprotocol/sdk`)
 - **Validation**: Zod schemas for all MCP tool inputs/outputs
-- **SSH Library**: `ssh2` (mature, low-level control) + `ssh2-sftp-client` for file transfers
-- **Security**: Default blacklist of ~30 dangerous command patterns must ship out of the box
+- **SSH Library**: `ssh2` (mature, low-level control) + `ssh2-sftp-client` for file transfers (v2)
+- **Security**: 36 default blacklist patterns for dangerous commands
 - **Compatibility**: Must work with Claude Desktop via stdio transport
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Bun over Node.js | Project conventions, built-in TS support, faster runtime | — Pending |
-| PRD as reference, not spec | Want to rethink architecture using MCP SDK best practices | — Pending |
-| Fresh architecture | Python version's monolithic server.py needs better separation | — Pending |
-| Both stdio + HTTP transports | Need Claude Desktop integration and remote access | — Pending |
+| Bun over Node.js | Project conventions, built-in TS support, faster runtime | ✓ Good |
+| Three-phase architecture | Foundation → SSH → MCP ensures dependency order | ✓ Good |
+| Result<T> pattern | Structured error handling without exceptions | ✓ Good |
+| 36 security patterns | Exceeded planned 30 for better coverage | ✓ Good |
+| Hybrid output handling | Stream + temp file for post-completion retrieval | ✓ Good |
+| Per-host passphrase env vars | SSH_PASSPHRASE_{HOST} for flexibility | ✓ Good |
+| schema._zod.def.shape | Zod 4 compatibility with MCP SDK | ✓ Good |
+| registerTool() API | Current MCP SDK method (deprecated tool()) | ✓ Good |
 
 ---
-*Last updated: 2026-03-07 after initialization*
+*Last updated: 2026-03-07 after v1.0 MVP milestone*
