@@ -37,13 +37,14 @@ export function registerSecurityInfo(
   server: McpServer,
   deps: SecurityInfoToolDeps
 ): void {
-  server.tool(
+  server.registerTool(
     "get_security_info",
     {
       title: "Get Security Info",
       description:
         "Get information about the current security configuration (mode, patterns).",
-      inputSchema: GetSecurityInfoSchema,
+      // Pass the raw shape from the schema for Zod 4 compatibility
+      inputSchema: GetSecurityInfoSchema._zod.def.shape,
     },
     async (_params) => {
       try {

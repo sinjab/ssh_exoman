@@ -16,7 +16,7 @@ function createMockServer() {
 
   return {
     tools,
-    tool: mock((name: string, _def: unknown, handler: (params: Record<string, unknown>) => Promise<unknown>) => {
+    registerTool: mock((name: string, _def: unknown, handler: (params: Record<string, unknown>) => Promise<unknown>) => {
       tools.push({ name, handler });
     }),
   };

@@ -38,13 +38,14 @@ export function registerExecuteCommand(
   server: McpServer,
   deps: ExecuteToolDeps
 ): void {
-  server.tool(
+  server.registerTool(
     "execute_command",
     {
       title: "Execute SSH Command",
       description:
         "Execute a command on a remote host via SSH. Returns a process ID for tracking.",
-      inputSchema: ExecuteCommandSchema,
+      // Pass the raw shape from the schema for Zod 4 compatibility
+      inputSchema: ExecuteCommandSchema._zod.def.shape,
     },
     async (params) => {
       try {

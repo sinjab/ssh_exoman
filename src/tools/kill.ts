@@ -38,13 +38,14 @@ export function registerKillCommand(
   server: McpServer,
   deps: KillToolDeps
 ): void {
-  server.tool(
+  server.registerTool(
     "kill_command",
     {
       title: "Kill Command",
       description:
         "Terminate a running command. Use force=true for immediate termination.",
-      inputSchema: KillCommandSchema,
+      // Pass the raw shape from the schema for Zod 4 compatibility
+      inputSchema: KillCommandSchema._zod.def.shape,
     },
     async (params) => {
       try {

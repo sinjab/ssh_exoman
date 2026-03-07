@@ -37,13 +37,14 @@ export function registerGetOutput(
   server: McpServer,
   deps: OutputToolDeps
 ): void {
-  server.tool(
+  server.registerTool(
     "get_command_output",
     {
       title: "Get Command Output",
       description:
         "Retrieve output from a command. Supports pagination via byte_offset and max_bytes.",
-      inputSchema: GetCommandOutputSchema,
+      // Pass the raw shape from the schema for Zod 4 compatibility
+      inputSchema: GetCommandOutputSchema._zod.def.shape,
     },
     async (params) => {
       try {

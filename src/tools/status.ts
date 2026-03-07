@@ -37,13 +37,14 @@ export function registerGetStatus(
   server: McpServer,
   deps: StatusToolDeps
 ): void {
-  server.tool(
+  server.registerTool(
     "get_command_status",
     {
       title: "Get Command Status",
       description:
         "Check the status of a command (running, completed, failed, killed).",
-      inputSchema: GetCommandStatusSchema,
+      // Pass the raw shape from the schema for Zod 4 compatibility
+      inputSchema: GetCommandStatusSchema._zod.def.shape,
     },
     async (params) => {
       try {
