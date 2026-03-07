@@ -222,7 +222,7 @@ function parseSecurityMode(value: string | undefined): SecurityMode {
 
 export function loadConfig(): AppConfig {
   return {
-    securityMode: parseSecurityMode(process.env.SSH_EXOMAN_SECURITY_MODE),
+    securityMode: parseSecurityMode(process.env.SSH_SECURITYMODE),
     sshConnectTimeout: parseInt(process.env.SSH_EXOMAN_CONNECT_TIMEOUT ?? "30000", 10),
     commandTimeout: parseInt(process.env.SSH_EXOMAN_COMMAND_TIMEOUT ?? "60000", 10),
     logLevel: (process.env.SSH_EXOMAN_LOG_LEVEL as AppConfig["logLevel"]) ?? "info",
@@ -437,7 +437,7 @@ const timeout = parseInt(process.env.SSH_EXOMAN_TIMEOUT ?? "30000", 10);
 // TypeScript declaration for typed env vars
 declare module "bun" {
   interface Env {
-    SSH_EXOMAN_SECURITY_MODE?: string;
+    SSH_SECURITYMODE?: string;
     SSH_EXOMAN_TIMEOUT?: string;
     SSH_EXOMAN_LOG_LEVEL?: string;
   }

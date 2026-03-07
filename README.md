@@ -32,7 +32,7 @@ bun install
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SSH_EXOMAN_SECURITY_MODE` | `blacklist` | Security mode: `blacklist`, `whitelist`, or `disabled` |
+| `SSH_SECURITYMODE` | `blacklist` | Security mode: `blacklist`, `whitelist`, or `disabled` |
 | `SSH_EXOMAN_CONNECT_TIMEOUT` | `30000` | SSH connection timeout in milliseconds |
 | `SSH_EXOMAN_COMMAND_TIMEOUT` | `60000` | Command execution timeout in milliseconds |
 | `SSH_EXOMAN_LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
@@ -106,7 +106,7 @@ Blocks dangerous commands including:
 | `whitelist` | Only allow explicitly permitted commands |
 | `disabled` | No filtering (use with caution) |
 
-Set mode via `SSH_EXOMAN_SECURITY_MODE=blacklist|whitelist|disabled`.
+Set mode via `SSH_SECURITYMODE=blacklist|whitelist|disabled`.
 
 ## Requirements
 

@@ -22,7 +22,7 @@ result: pass
 note: Initially tried `bun run dev` (no dev script - library not server). `bun test` passes all 129 tests across 6 files.
 
 ### 2. Configuration Loading
-expected: Import and call `loadConfig()` from `src/config.ts`. Returns object with securityMode (default: 'blacklist'), sshConnectTimeout (default: 30000), commandTimeout (default: 60000), logLevel (default: 'info'). Setting SSH_EXOMAN_SECURITY_MODE=whitelist changes securityMode to 'whitelist'.
+expected: Import and call `loadConfig()` from `src/config.ts`. Returns object with securityMode (default: 'blacklist'), sshConnectTimeout (default: 30000), commandTimeout (default: 60000), logLevel (default: 'info'). Setting SSH_SECURITYMODE=whitelist changes securityMode to 'whitelist'.
 result: pass
 
 ### 3. Structured Logging

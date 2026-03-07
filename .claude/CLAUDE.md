@@ -72,7 +72,7 @@ bun run src/index.ts # Run the MCP server directly
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SSH_EXOMAN_SECURITY_MODE` | `blacklist` | Security mode: blacklist/whitelist/disabled |
+| `SSH_SECURITYMODE` | `blacklist` | Security mode: blacklist/whitelist/disabled |
 | `SSH_EXOMAN_CONNECT_TIMEOUT` | `30000` | SSH connection timeout (ms) |
 | `SSH_EXOMAN_COMMAND_TIMEOUT` | `60000` | Command execution timeout (ms) |
 | `SSH_EXOMAN_LOG_LEVEL` | `info` | Log level: debug/info/warn/error |

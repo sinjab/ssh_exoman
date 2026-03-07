@@ -6,8 +6,8 @@ describe("loadConfig", () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
-    // Clear all SSH_EXOMAN_ env vars before each test
-    delete process.env.SSH_EXOMAN_SECURITY_MODE;
+    // Clear all SSH_ env vars before each test
+    delete process.env.SSH_SECURITYMODE;
     delete process.env.SSH_EXOMAN_CONNECT_TIMEOUT;
     delete process.env.SSH_EXOMAN_COMMAND_TIMEOUT;
     delete process.env.SSH_EXOMAN_LOG_LEVEL;
@@ -29,39 +29,39 @@ describe("loadConfig", () => {
     });
   });
 
-  describe("SSH_EXOMAN_SECURITY_MODE", () => {
+  describe("SSH_SECURITYMODE", () => {
     test('reads "blacklist" from env', () => {
-      process.env.SSH_EXOMAN_SECURITY_MODE = "blacklist";
+      process.env.SSH_SECURITYMODE = "blacklist";
       const config = loadConfig();
       expect(config.securityMode).toBe("blacklist");
     });
 
     test('reads "whitelist" from env', () => {
-      process.env.SSH_EXOMAN_SECURITY_MODE = "whitelist";
+      process.env.SSH_SECURITYMODE = "whitelist";
       const config = loadConfig();
       expect(config.securityMode).toBe("whitelist");
     });
 
     test('reads "disabled" from env', () => {
-      process.env.SSH_EXOMAN_SECURITY_MODE = "disabled";
+      process.env.SSH_SECURITYMODE = "disabled";
       const config = loadConfig();
       expect(config.securityMode).toBe("disabled");
     });
 
     test('falls back to "blacklist" for invalid value', () => {
-      process.env.SSH_EXOMAN_SECURITY_MODE = "invalid-mode";
+      process.env.SSH_SECURITYMODE = "invalid-mode";
       const config = loadConfig();
       expect(config.securityMode).toBe("blacklist");
     });
 
     test("falls back to blacklist for empty string", () => {
-      process.env.SSH_EXOMAN_SECURITY_MODE = "";
+      process.env.SSH_SECURITYMODE = "";
       const config = loadConfig();
       expect(config.securityMode).toBe("blacklist");
     });
 
     test("falls back to blacklist for case-sensitive mismatch", () => {
-      process.env.SSH_EXOMAN_SECURITY_MODE = "BLACKLIST";
+      process.env.SSH_SECURITYMODE = "BLACKLIST";
       const config = loadConfig();
       expect(config.securityMode).toBe("blacklist");
     });
@@ -166,7 +166,7 @@ describe("loadConfig", () => {
 
   describe("edge cases", () => {
     test("handles all env vars set to valid values", () => {
-      process.env.SSH_EXOMAN_SECURITY_MODE = "whitelist";
+      process.env.SSH_SECURITYMODE = "whitelist";
       process.env.SSH_EXOMAN_CONNECT_TIMEOUT = "25000";
       process.env.SSH_EXOMAN_COMMAND_TIMEOUT = "90000";
       process.env.SSH_EXOMAN_LOG_LEVEL = "debug";

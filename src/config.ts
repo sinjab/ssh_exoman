@@ -12,7 +12,7 @@ import type { SecurityMode, LogLevel, AppConfig } from "./types";
 // ============================================================================
 
 const ENV_KEYS = {
-  SECURITY_MODE: "SSH_EXOMAN_SECURITY_MODE",
+  SECURITY_MODE: "SSH_SECURITYMODE",
   CONNECT_TIMEOUT: "SSH_EXOMAN_CONNECT_TIMEOUT",
   COMMAND_TIMEOUT: "SSH_EXOMAN_COMMAND_TIMEOUT",
   LOG_LEVEL: "SSH_EXOMAN_LOG_LEVEL",
