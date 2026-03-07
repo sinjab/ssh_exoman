@@ -14,9 +14,9 @@
 
 ### SSH Infrastructure
 
-- [ ] **SSH-01**: Server parses ~/.ssh/config for host resolution (Host, HostName, User, Port, IdentityFile)
+- [x] **SSH-01**: Server parses ~/.ssh/config for host resolution (Host, HostName, User, Port, IdentityFile)
 - [ ] **SSH-02**: Server manages SSH connections with configurable connect timeout
-- [ ] **SSH-03**: Server detects simple vs complex commands and routes execution accordingly
+- [x] **SSH-03**: Server detects simple vs complex commands and routes execution accordingly
 
 ### Security
 
@@ -80,9 +80,9 @@
 | EXEC-02 | Phase 2 | Pending |
 | EXEC-03 | Phase 2 | Pending |
 | EXEC-04 | Phase 2 | Pending |
-| SSH-01 | Phase 2 | Pending |
+| SSH-01 | Phase 2 | Complete |
 | SSH-02 | Phase 2 | Pending |
-| SSH-03 | Phase 2 | Pending |
+| SSH-03 | Phase 2 | Complete |
 | SEC-01 | Phase 1 | Complete |
 | SEC-02 | Phase 1 | Complete |
 | SEC-03 | Phase 1 | Complete |
@@ -102,4 +102,4 @@
 
 ---
 *Requirements defined: 2026-03-07*
-*Last updated: 2026-03-07 after Phase 1 completion*
+*Last updated: 2026-03-07 after 02-01 completion*
