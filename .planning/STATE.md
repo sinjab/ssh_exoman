@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-07T16:41:18.159Z"
-last_activity: 2026-03-07 -- 02-03 completed
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-07T17:16:46.509Z"
+last_activity: 2026-03-07 -- 03-01 completed
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
-  percent: 100
+  total_plans: 9
+  completed_plans: 8
+  percent: 80
 ---
 
 # Project State
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** AI assistants can securely execute and manage SSH commands on remote hosts through MCP
-**Current focus:** Phase 2: SSH Execution Layer
+**Current focus:** Phase 3: MCP Server Integration
 
 ## Current Position
 
-Phase: 2 of 3 (SSH Execution Layer) - COMPLETE
-Plan: 3 of 3 in current phase
-Status: Phase 2 Complete
-Last activity: 2026-03-07 -- 02-03 completed
+Phase: 3 of 3 (MCP Server Integration) - IN PROGRESS
+Plan: 1 of 3 in current phase
+Status: Phase 3 Plan 01 Complete
+Last activity: 2026-03-07 -- 03-01 completed
 
-Progress: [███████████] 100%
+Progress: [████████░░░] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 4.14 min
-- Total execution time: 0.48 hours
+- Total plans completed: 8
+- Average duration: 4.52 min
+- Total execution time: 0.60 hours
 
 **By Phase:**
 
@@ -45,12 +45,14 @@ Progress: [███████████] 100%
 |-------|-------|-------|----------|
 | 01-foundation-services | 4 | 4 | 3.75 min |
 | 02-ssh-execution-layer | 3 | 12 min | 4 min |
+| 03-mcp-server-integration | 1 | 10 min | 10 min |
 
 **Recent Trend:**
-- Last 5 plans: 5 min, 3 min, 4 min, 8 min, 5 min
+- Last 5 plans: 3 min, 4 min, 8 min, 5 min, 10 min
 - Trend: Stable
 
 *Updated after each plan completion*
+| Phase 03-mcp-server-integration P01 | 10m | 4 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -78,6 +80,14 @@ Recent decisions affecting current work:
 - [02-03]: connect() returns structured Result type with SSH_CONNECTION_FAILED error code
 - [02-03]: Executor returns processId immediately after exec() starts, not after completion
 - [02-03]: Tilde expansion for identity file paths uses os.homedir()
+- [03-01]: Use schema._zod.def.shape for Zod 4 compatibility with MCP SDK
+- [03-01]: Use registerTool() instead of deprecated tool() method
+- [03-01]: Two-file entry pattern: index.ts (thin transport) + server.ts (McpServer setup)
+- [03-01]: resultToMcpResponse helper converts Result<T> to MCP content envelope with isError flag
+- [Phase 03-01]: Use schema._zod.def.shape for Zod 4 compatibility with MCP SDK
+- [Phase 03-01]: Use registerTool() instead of deprecated tool() method
+- [Phase 03-01]: Two-file entry pattern: index.ts (thin transport) + server.ts (McpServer setup)
+- [Phase 03-01]: resultToMcpResponse helper converts Result<T> to MCP content envelope with isError flag
 
 ### Pending Todos
 
@@ -85,11 +95,10 @@ None yet.
 
 ### Blockers/Concerns
 
-- [Research]: ssh2 falls back to pure-JS crypto under Bun -- performance impact unknown, measure during Phase 2
-- [Research]: MCP SDK tool registration API (.tool() vs .registerTool()) needs verification during Phase 3
+- [Resolved]: MCP SDK uses .registerTool() not .tool() - verified and implemented
 
 ## Session Continuity
 
-Last session: 2026-03-07T16:41:18.157Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-mcp-server-integration/03-CONTEXT.md
+Last session: 2026-03-07T17:16:46.507Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: None
