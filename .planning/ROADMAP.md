@@ -62,11 +62,11 @@ Plans:
   2. Claude Desktop can read the ssh://hosts resource and see a list of configured SSH hosts from ~/.ssh/config
   3. Claude Desktop can access the ssh_help prompt and receive structured usage guidance for all available tools
   4. End-to-end workflow works: execute a command on a remote host, check its status, retrieve its output, all through Claude Desktop
-**Plans**: TBD
+**Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md — MCP Server + Tool Handlers (createServer, 5 tool handlers, test utilities)
+- [ ] 03-02-PLAN.md — Resource & Prompt (ssh://hosts resource, ssh_help prompt, server registration)
 
 ## Progress
 
@@ -77,4 +77,4 @@ Phases execute in numeric order: 1 -> 2 -> 3
 |-------|----------------|--------|-----------|
 | 1. Foundation Services | 4/4 | Complete | 01-01, 01-02, 01-03, 01-04 |
 | 2. SSH Execution Layer | 3/3 | Complete | 02-01, 02-02, 02-03 |
-| 3. MCP Server Integration | 0/? | Not started | - |
+| 3. MCP Server Integration | 0/2 | Not started | - |
