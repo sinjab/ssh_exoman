@@ -31,26 +31,17 @@ result: pass
 
 ### 5. Execute SSH Command
 expected: Ask Claude to run a simple SSH command on one of your configured hosts (e.g., `hostname` or `echo hello`). Claude should execute the command via execute_command and report the result.
-result: issue
-reported: "Cannot parse privateKey: Encrypted OpenSSH private key detected, but no passphrase given"
-severity: major
+result: pass
+note: Gap closed by plan 03-03. Requires `SSH_PASSPHRASE` or `SSH_PASSPHRASE_{HOST}` env var (host normalized: uppercase, hyphens to underscores). Original issue was env var name mismatch (user had `SSH_KEY_PHRASE` instead of `SSH_PASSPHRASE`).
 
 ## Summary
 
 total: 5
-passed: 4
-issues: 1
+passed: 5
+issues: 0
 pending: 0
 skipped: 0
 
 ## Gaps
 
-- truth: "SSH command execution works with passphrase-protected private keys"
-  status: failed
-  reason: "User reported: Cannot parse privateKey: Encrypted OpenSSH private key detected, but no passphrase given"
-  severity: major
-  test: 5
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+None. All gaps resolved by plan 03-03 (SSH passphrase support).
