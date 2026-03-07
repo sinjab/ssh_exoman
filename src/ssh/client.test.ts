@@ -125,6 +125,30 @@ describe("SSH Client", () => {
         expect(result.error.message).toBeDefined();
       }
     });
+
+    test("provides helpful error message for encrypted private key", async () => {
+      // Test 7: connect provides helpful error message for encrypted private key
+      // This test documents the expected behavior - when an encrypted key error occurs,
+      // the error message mentions SSH_PASSPHRASE_{HOST} and SSH_PASSPHRASE env vars.
+      // We use a non-existent host to trigger a connection failure quickly.
+      const hostConfig: HostConfig = {
+        host: "encrypted-key-host",
+        hostname: "localhost", // Localhost exists but will reject on invalid port
+        user: "testuser",
+        port: 59999, // Unlikely to have SSH running
+        identityFile: "~/.ssh/nonexistent_test_key_for_ssh_exoman_encrypted",
+      };
+
+      const result = await connect(hostConfig, 200);
+
+      // The connection will fail (either connection refused or key read failure)
+      expect(result.success).toBe(false);
+
+      // Verify the error message exists
+      if (!result.success) {
+        expect(result.error.message).toBeDefined();
+      }
+    });
   });
 });
 

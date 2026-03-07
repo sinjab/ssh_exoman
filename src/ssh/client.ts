@@ -89,19 +89,31 @@ export async function connect(
     });
 
     client.on("error", (err: Error & { code?: string }) => {
+      // Check for encrypted private key error (missing passphrase)
+      const isEncryptedKeyError =
+        err.message.includes("passphrase") ||
+        err.message.includes("Encrypted") ||
+        err.message.includes("no passphrase given");
+
       // Distinguish between auth failures and other connection errors
-      const errorCode =
+      let errorCode: ErrorCode;
+      let errorMessage: string;
+
+      if (isEncryptedKeyError) {
+        errorCode = ErrorCode.SSH_AUTH_FAILED;
+        errorMessage = `Encrypted private key detected but no passphrase provided. Set SSH_PASSPHRASE_${hostConfig.host.toUpperCase().replace(/-/g, "_")} or SSH_PASSPHRASE environment variable.`;
+      } else if (
         err.code === "ECONNREFUSED" ||
         err.message.includes("Authentication failed")
-          ? ErrorCode.SSH_AUTH_FAILED
-          : ErrorCode.SSH_CONNECTION_FAILED;
+      ) {
+        errorCode = ErrorCode.SSH_AUTH_FAILED;
+        errorMessage = `SSH connection failed: ${err.message}`;
+      } else {
+        errorCode = ErrorCode.SSH_CONNECTION_FAILED;
+        errorMessage = `SSH connection failed: ${err.message}`;
+      }
 
-      resolve(
-        errorResult(
-          errorCode,
-          `SSH connection failed: ${err.message}`
-        )
-      );
+      resolve(errorResult(errorCode, errorMessage));
     });
 
     // Build connection config
