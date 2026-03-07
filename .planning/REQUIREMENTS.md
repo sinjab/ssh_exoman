@@ -20,18 +20,18 @@
 
 ### Security
 
-- [ ] **SEC-01**: Server validates commands against configurable security policy (blacklist/whitelist/disabled)
-- [ ] **SEC-02**: Server ships with ~30 default blacklist patterns for dangerous commands
-- [ ] **SEC-03**: User can inspect current security configuration via tool
+- [x] **SEC-01**: Server validates commands against configurable security policy (blacklist/whitelist/disabled)
+- [x] **SEC-02**: Server ships with ~30 default blacklist patterns for dangerous commands
+- [x] **SEC-03**: User can inspect current security configuration via tool
 
 ### MCP Integration
 
 - [ ] **MCP-01**: Server connects via stdio transport for Claude Desktop integration
 - [ ] **MCP-02**: Server exposes ssh://hosts resource listing configured SSH hosts
 - [ ] **MCP-03**: Server provides ssh_help prompt with usage guidance
-- [ ] **MCP-04**: All tools return structured error responses with success/error_message shape
+- [x] **MCP-04**: All tools return structured error responses with success/error_message shape
 - [x] **MCP-05**: All settings configurable via environment variables (Bun auto-loads .env)
-- [ ] **MCP-06**: All tool inputs validated with Zod schemas
+- [x] **MCP-06**: All tool inputs validated with Zod schemas
 
 ### Infrastructure
 
@@ -83,15 +83,15 @@
 | SSH-01 | Phase 2 | Pending |
 | SSH-02 | Phase 2 | Pending |
 | SSH-03 | Phase 2 | Pending |
-| SEC-01 | Phase 1 | Pending |
-| SEC-02 | Phase 1 | Pending |
-| SEC-03 | Phase 1 | Pending |
+| SEC-01 | Phase 1 | Complete |
+| SEC-02 | Phase 1 | Complete |
+| SEC-03 | Phase 1 | Complete |
 | MCP-01 | Phase 3 | Pending |
 | MCP-02 | Phase 3 | Pending |
 | MCP-03 | Phase 3 | Pending |
-| MCP-04 | Phase 1 | Pending |
+| MCP-04 | Phase 1 | Complete |
 | MCP-05 | Phase 1 | Complete |
-| MCP-06 | Phase 1 | Pending |
+| MCP-06 | Phase 1 | Complete |
 | INFRA-01 | Phase 1 | Complete |
 | INFRA-02 | Phase 1 | Complete |
 
@@ -102,4 +102,4 @@
 
 ---
 *Requirements defined: 2026-03-07*
-*Last updated: 2026-03-07 after roadmap creation*
+*Last updated: 2026-03-07 after Phase 1 completion*

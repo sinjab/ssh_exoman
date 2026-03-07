@@ -12,7 +12,7 @@ This roadmap delivers a working MCP SSH server in three phases following bottom-
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation Services** - Config, security validator, process tracker, logging, error types, and Zod schemas
+- [x] **Phase 1: Foundation Services** - Config, security validator, process tracker, logging, error types, and Zod schemas
 - [ ] **Phase 2: SSH Execution Layer** - SSH config parsing, connection management, and background command execution
 - [ ] **Phase 3: MCP Server Integration** - Tool handlers, resource, prompt, stdio transport, and end-to-end Claude Desktop integration
 
@@ -31,10 +31,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans in 2 waves
 
 Plans:
-- [ ] 01-01-PLAN.md — Types & Errors Foundation (Result type, ErrorCode enum, shared types)
-- [ ] 01-02-PLAN.md — Configuration Module (env var loading, defaults, validation)
-- [ ] 01-03-PLAN.md — Structured Logger (JSON to stderr, log levels, convenience methods)
-- [ ] 01-04-PLAN.md — Security Validator & Schemas (command validation, Zod schemas, barrel exports)
+- [x] 01-01-PLAN.md — Types & Errors Foundation (Result type, ErrorCode enum, shared types)
+- [x] 01-02-PLAN.md — Configuration Module (env var loading, defaults, validation)
+- [x] 01-03-PLAN.md — Structured Logger (JSON to stderr, log levels, convenience methods)
+- [x] 01-04-PLAN.md — Security Validator & Schemas (command validation, Zod schemas, barrel exports)
 
 ### Phase 2: SSH Execution Layer
 **Goal**: Commands can be executed on remote SSH hosts with background process tracking, output retrieval, status checking, and process termination -- all using ~/.ssh/config for host resolution
@@ -74,6 +74,6 @@ Phases execute in numeric order: 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation Services | 1/4 | In Progress | 01-02 |
+| 1. Foundation Services | 4/4 | Complete | 01-01, 01-02, 01-03, 01-04 |
 | 2. SSH Execution Layer | 0/? | Not started | - |
 | 3. MCP Server Integration | 0/? | Not started | - |
