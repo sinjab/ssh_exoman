@@ -3,6 +3,9 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "build": "bun build src/index.ts --outdir=dist --target=node"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/ssh2": "^1.15.5"
