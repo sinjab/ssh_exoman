@@ -46,11 +46,12 @@ Plans:
   3. User can retrieve command output in chunks using byte-offset pagination, and can check command status (running/completed/exit code) without fetching output
   4. User can kill a running background process, with SIGTERM followed by SIGKILL escalation if the process does not exit
   5. Server correctly distinguishes simple vs complex commands and routes execution accordingly (direct exec vs shell wrapper)
-**Plans**: TBD
+**Plans**: 3 plans in 2 waves
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md — SSH Config Parser & Command Detection (host resolution, complexity detection, shell wrapping)
+- [ ] 02-02-PLAN.md — Process Manager (background tracking, output persistence, status/kill operations)
+- [ ] 02-03-PLAN.md — SSH Client & Executor (connection management, execution orchestration)
 
 ### Phase 3: MCP Server Integration
 **Goal**: A complete, working MCP server that Claude Desktop can connect to via stdio, exposing all SSH tools, the hosts resource, and the help prompt
@@ -75,5 +76,5 @@ Phases execute in numeric order: 1 -> 2 -> 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation Services | 4/4 | Complete | 01-01, 01-02, 01-03, 01-04 |
-| 2. SSH Execution Layer | 0/? | Not started | - |
+| 2. SSH Execution Layer | 0/3 | Not started | - |
 | 3. MCP Server Integration | 0/? | Not started | - |
