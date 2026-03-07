@@ -76,30 +76,30 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EXEC-01 | Pending | Pending |
-| EXEC-02 | Pending | Pending |
-| EXEC-03 | Pending | Pending |
-| EXEC-04 | Pending | Pending |
-| SSH-01 | Pending | Pending |
-| SSH-02 | Pending | Pending |
-| SSH-03 | Pending | Pending |
-| SEC-01 | Pending | Pending |
-| SEC-02 | Pending | Pending |
-| SEC-03 | Pending | Pending |
-| MCP-01 | Pending | Pending |
-| MCP-02 | Pending | Pending |
-| MCP-03 | Pending | Pending |
-| MCP-04 | Pending | Pending |
-| MCP-05 | Pending | Pending |
-| MCP-06 | Pending | Pending |
-| INFRA-01 | Pending | Pending |
-| INFRA-02 | Pending | Pending |
+| EXEC-01 | Phase 2 | Pending |
+| EXEC-02 | Phase 2 | Pending |
+| EXEC-03 | Phase 2 | Pending |
+| EXEC-04 | Phase 2 | Pending |
+| SSH-01 | Phase 2 | Pending |
+| SSH-02 | Phase 2 | Pending |
+| SSH-03 | Phase 2 | Pending |
+| SEC-01 | Phase 1 | Pending |
+| SEC-02 | Phase 1 | Pending |
+| SEC-03 | Phase 1 | Pending |
+| MCP-01 | Phase 3 | Pending |
+| MCP-02 | Phase 3 | Pending |
+| MCP-03 | Phase 3 | Pending |
+| MCP-04 | Phase 1 | Pending |
+| MCP-05 | Phase 1 | Pending |
+| MCP-06 | Phase 1 | Pending |
+| INFRA-01 | Phase 1 | Pending |
+| INFRA-02 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 18 total
-- Mapped to phases: 0
-- Unmapped: 18 ⚠️
+- Mapped to phases: 18
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-07*
-*Last updated: 2026-03-07 after initial definition*
+*Last updated: 2026-03-07 after roadmap creation*
