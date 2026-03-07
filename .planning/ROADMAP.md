@@ -28,11 +28,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Structured log messages are written to stderr (never stdout) with timestamp, level, and context fields
   4. All tool input shapes are defined as Zod schemas and all service functions return structured responses with success/error_message shape
   5. All settings (security mode, timeouts, log level) are loadable from environment variables
-**Plans**: TBD
+**Plans**: 4 plans in 2 waves
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Types & Errors Foundation (Result type, ErrorCode enum, shared types)
+- [ ] 01-02-PLAN.md — Configuration Module (env var loading, defaults, validation)
+- [ ] 01-03-PLAN.md — Structured Logger (JSON to stderr, log levels, convenience methods)
+- [ ] 01-04-PLAN.md — Security Validator & Schemas (command validation, Zod schemas, barrel exports)
 
 ### Phase 2: SSH Execution Layer
 **Goal**: Commands can be executed on remote SSH hosts with background process tracking, output retrieval, status checking, and process termination -- all using ~/.ssh/config for host resolution
@@ -72,6 +74,6 @@ Phases execute in numeric order: 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation Services | 0/? | Not started | - |
+| 1. Foundation Services | 0/4 | Not started | - |
 | 2. SSH Execution Layer | 0/? | Not started | - |
 | 3. MCP Server Integration | 0/? | Not started | - |
