@@ -7,10 +7,10 @@
 
 ### Command Execution
 
-- [ ] **EXEC-01**: User can execute SSH commands in background with UUID-based process tracking
-- [ ] **EXEC-02**: User can retrieve command output with chunked byte-offset reading
-- [ ] **EXEC-03**: User can check command status without fetching full output
-- [ ] **EXEC-04**: User can kill running processes with SIGTERM → SIGKILL escalation
+- [x] **EXEC-01**: User can execute SSH commands in background with UUID-based process tracking
+- [x] **EXEC-02**: User can retrieve command output with chunked byte-offset reading
+- [x] **EXEC-03**: User can check command status without fetching full output
+- [x] **EXEC-04**: User can kill running processes with SIGTERM → SIGKILL escalation
 
 ### SSH Infrastructure
 
@@ -76,10 +76,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EXEC-01 | Phase 2 | Pending |
-| EXEC-02 | Phase 2 | Pending |
-| EXEC-03 | Phase 2 | Pending |
-| EXEC-04 | Phase 2 | Pending |
+| EXEC-01 | Phase 2 | Complete |
+| EXEC-02 | Phase 2 | Complete |
+| EXEC-03 | Phase 2 | Complete |
+| EXEC-04 | Phase 2 | Complete |
 | SSH-01 | Phase 2 | Complete |
 | SSH-02 | Phase 2 | Pending |
 | SSH-03 | Phase 2 | Complete |
@@ -102,4 +102,4 @@
 
 ---
 *Requirements defined: 2026-03-07*
-*Last updated: 2026-03-07 after 02-01 completion*
+*Last updated: 2026-03-07 after 02-02 completion*

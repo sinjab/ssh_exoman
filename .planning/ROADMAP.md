@@ -50,7 +50,7 @@ Plans:
 
 Plans:
 - [x] 02-01-PLAN.md — SSH Config Parser & Command Detection (host resolution, complexity detection, shell wrapping)
-- [ ] 02-02-PLAN.md — Process Manager (background tracking, output persistence, status/kill operations)
+- [x] 02-02-PLAN.md — Process Manager (background tracking, output persistence, status/kill operations)
 - [ ] 02-03-PLAN.md — SSH Client & Executor (connection management, execution orchestration)
 
 ### Phase 3: MCP Server Integration
@@ -76,5 +76,5 @@ Phases execute in numeric order: 1 -> 2 -> 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation Services | 4/4 | Complete | 01-01, 01-02, 01-03, 01-04 |
-| 2. SSH Execution Layer | 1/3 | In progress | 02-01 |
+| 2. SSH Execution Layer | 2/3 | In progress | 02-01, 02-02 |
 | 3. MCP Server Integration | 0/? | Not started | - |
