@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-03-07T17:27:00.000Z"
-last_activity: 2026-03-07 -- 03-02 completed
+stopped_at: Completed 03-03-PLAN.md
+last_updated: "2026-03-07T18:30:39.000Z"
+last_activity: 2026-03-07 -- 03-03 completed (gap closure)
 progress:
   total_phases: 3
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 10
+  completed_plans: 10
   percent: 100
 ---
 
@@ -26,18 +26,18 @@ See: .planning/PROJECT.md (updated 2026-03-07)
 ## Current Position
 
 Phase: 3 of 3 (MCP Server Integration) - COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase 3 Plan 02 Complete
-Last activity: 2026-03-07 -- 03-02 completed
+Plan: 3 of 3 in current phase (gap closure)
+Status: Phase 3 Plan 03 Complete
+Last activity: 2026-03-07 -- 03-03 completed (gap closure)
 
 Progress: [███████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: 4.77 min
-- Total execution time: 0.70 hours
+- Total plans completed: 10
+- Average duration: 4.7 min
+- Total execution time: 0.77 hours
 
 **By Phase:**
 
@@ -45,15 +45,16 @@ Progress: [███████████] 100%
 |-------|-------|-------|----------|
 | 01-foundation-services | 4 | 4 | 3.75 min |
 | 02-ssh-execution-layer | 3 | 12 min | 4 min |
-| 03-mcp-server-integration | 2 | 16 min | 8 min |
+| 03-mcp-server-integration | 3 | 20 min | 6.7 min |
 
 **Recent Trend:**
-- Last 5 plans: 4 min, 8 min, 5 min, 10 min, 6 min
+- Last 5 plans: 8 min, 5 min, 10 min, 6 min, 4 min
 - Trend: Stable
 
 *Updated after each plan completion*
 | Phase 03-mcp-server-integration P01 | 10m | 4 tasks | 17 files |
 | Phase 03 P02 | 6m | 3 tasks | 6 files |
+| Phase 03 P03 | 4m | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,9 @@ Recent decisions affecting current work:
 - [Phase 03-02]: Resource returns only host aliases (JSON array), not full config details
 - [Phase 03-02]: Prompt content includes all 5 tools with workflow example
 - [Phase 03-02]: Resource uses existing listHosts() which filters wildcards
+- [Phase 03-03]: Host alias normalization: uppercase + hyphens to underscores for env var names
+- [Phase 03-03]: Passphrase resolution order: per-host (SSH_PASSPHRASE_{HOST}) first, then global fallback
+- [Phase 03-03]: Error message includes specific env var name hint for encrypted key errors
 
 ### Pending Todos
 
@@ -103,6 +107,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-07T17:25:34.404Z
-Stopped at: Completed 03-02-PLAN.md
+Last session: 2026-03-07T18:30:39.000Z
+Stopped at: Completed 03-03-PLAN.md (gap closure)
 Resume file: None
