@@ -1,15 +1,119 @@
-# ssh_exoman
+# SSH Exoman
 
-To install dependencies:
+An MCP (Model Context Protocol) server for Claude Desktop that enables secure SSH command execution on remote hosts. Uses stdio transport for seamless Claude Desktop integration.
+
+## Features
+
+### Tools
+
+- **`execute_command`** - Run SSH commands in background with UUID tracking for long-running operations
+- **`get_command_output`** - Retrieve command output with chunked reading for large outputs
+- **`get_command_status`** - Check if a command is running, completed, or failed
+- **`kill_command`** - Terminate running processes (SIGTERM → SIGKILL escalation)
+- **`get_security_info`** - Inspect current security configuration and blocked commands
+
+### Resources
+
+- **`ssh://hosts`** - List configured SSH hosts from `~/.ssh/config`
+
+### Prompts
+
+- **`ssh_help`** - Usage guidance for all available tools
+
+## Installation
 
 ```bash
 bun install
 ```
 
-To run:
+## Configuration
 
-```bash
-bun run index.ts
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SSH_EXOMAN_SECURITY_MODE` | `blacklist` | Security mode: `blacklist`, `whitelist`, or `disabled` |
+| `SSH_EXOMAN_CONNECT_TIMEOUT` | `30000` | SSH connection timeout in milliseconds |
+| `SSH_EXOMAN_COMMAND_TIMEOUT` | `60000` | Command execution timeout in milliseconds |
+| `SSH_EXOMAN_LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
+| `SSH_PASSPHRASE` | - | Global passphrase for encrypted private keys |
+| `SSH_PASSPHRASE_{HOST}` | - | Per-host passphrase (host uppercased, hyphens to underscores) |
+
+#### Per-Host Passphrases
+
+For hosts with passphrase-protected private keys, set per-host environment variables:
+
+- Host `myhost` → `SSH_PASSPHRASE_MYHOST`
+- Host `my-server` → `SSH_PASSPHRASE_MY_SERVER`
+- Host `prod_db` → `SSH_PASSPHRASE_PROD_DB`
+
+If no per-host passphrase is set, falls back to `SSH_PASSPHRASE`.
+
+## Claude Desktop Integration
+
+Add to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "ssh-exoman": {
+      "command": "bun",
+      "args": ["run", "/path/to/ssh_exoman/src/index.ts"]
+    }
+  }
+}
 ```
 
-This project was created using `bun init` in bun v1.3.10. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+For production use, build first:
+
+```bash
+bun build ./src/index.ts --compile --outfile ssh-exoman
+```
+
+Then reference the compiled binary:
+
+```json
+{
+  "mcpServers": {
+    "ssh-exoman": {
+      "command": "/path/to/ssh_exoman/ssh-exoman"
+    }
+  }
+}
+```
+
+## Security
+
+SSH Exoman includes built-in command filtering to prevent accidental destructive operations.
+
+### Default Blacklist (36 patterns)
+
+Blocks dangerous commands including:
+
+- `rm -rf` variants
+- `sudo` and `su`
+- `shutdown`, `reboot`, `halt`
+- `iptables`, `ufw`
+- `dd`, `mkfs`, `fdisk`
+- `:(){ :|:& };:` (fork bombs)
+- And more...
+
+### Security Modes
+
+| Mode | Behavior |
+|------|----------|
+| `blacklist` (default) | Block known dangerous commands, allow everything else |
+| `whitelist` | Only allow explicitly permitted commands |
+| `disabled` | No filtering (use with caution) |
+
+Set mode via `SSH_EXOMAN_SECURITY_MODE=blacklist|whitelist|disabled`.
+
+## Requirements
+
+- [Bun](https://bun.sh) v1.3.10 or later
+- SSH access configured in `~/.ssh/config`
+- Private keys in `~/.ssh/` (optionally passphrase-protected)
+
+## License
+
+MIT
