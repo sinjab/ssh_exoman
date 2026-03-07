@@ -1,0 +1,102 @@
+/**
+ * SSH Client module for ssh-exoman
+ *
+ * Provides SSH connection management with configurable timeout,
+ * identity file loading, and structured error handling.
+ */
+
+import { Client } from "ssh2";
+import * as fs from "fs";
+import * as os from "os";
+import type { HostConfig } from "./config-parser";
+import type { Result } from "../types";
+import { ErrorCode, errorResult } from "../errors";
+
+// ============================================================================
+// Types
+// ============================================================================
+
+/**
+ * Represents an active SSH connection
+ */
+export interface SSHConnection {
+  /** The ssh2 Client instance */
+  client: Client;
+  /** The resolved host configuration used for the connection */
+  hostConfig: HostConfig;
+}
+
+// ============================================================================
+// Connection Functions
+// ============================================================================
+
+/**
+ * Connect to an SSH host with configurable timeout.
+ *
+ * @param hostConfig - The resolved host configuration
+ * @param timeoutMs - Connection timeout in milliseconds (maps to ssh2 readyTimeout)
+ * @returns Promise resolving to Result with SSHConnection on success
+ */
+export async function connect(
+  hostConfig: HostConfig,
+  timeoutMs: number
+): Promise<Result<SSHConnection>> {
+  return new Promise((resolve) => {
+    const client = new Client();
+
+    client.on("ready", () => {
+      resolve({
+        success: true,
+        data: { client, hostConfig },
+      });
+    });
+
+    client.on("error", (err: Error & { code?: string }) => {
+      // Distinguish between auth failures and other connection errors
+      const errorCode =
+        err.code === "ECONNREFUSED" ||
+        err.message.includes("Authentication failed")
+          ? ErrorCode.SSH_AUTH_FAILED
+          : ErrorCode.SSH_CONNECTION_FAILED;
+
+      resolve(
+        errorResult(
+          errorCode,
+          `SSH connection failed: ${err.message}`
+        )
+      );
+    });
+
+    // Build connection config
+    // Use hostname if available, otherwise use host alias
+    const connectConfig: {
+      host: string;
+      port: number;
+      username: string;
+      readyTimeout: number;
+      privateKey?: Buffer;
+    } = {
+      host: hostConfig.hostname || hostConfig.host,
+      port: hostConfig.port,
+      username: hostConfig.user,
+      readyTimeout: timeoutMs,
+    };
+
+    // Load private key if specified
+    if (hostConfig.identityFile) {
+      // Expand ~ to home directory
+      const keyPath = hostConfig.identityFile.replace(/^~/, os.homedir());
+
+      if (fs.existsSync(keyPath)) {
+        try {
+          connectConfig.privateKey = fs.readFileSync(keyPath);
+        } catch {
+          // If we can't read the key, let the connection fail naturally
+          // This will result in an SSH_CONNECTION_FAILED error
+        }
+      }
+    }
+
+    client.connect(connectConfig);
+  });
+}
