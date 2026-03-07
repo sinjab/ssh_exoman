@@ -1,93 +1,32 @@
+#!/usr/bin/env bun
 /**
- * ssh-exoman: SSH command execution via MCP
+ * SSH Exoman MCP Server - Entry Point
  *
- * This barrel file exports all public APIs for the ssh-exoman package.
+ * Thin entry point that connects stdio transport to the MCP server.
+ * All tool/resource/prompt registration happens in server.ts.
+ *
+ * CRITICAL: This file logs to stderr only - never stdout.
+ * MCP stdio transport reserves stdout for protocol messages.
  */
 
-// ============================================================================
-// Types
-// ============================================================================
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { createServer } from "./server.js";
+import { logger } from "./structured-logger.js";
 
-export type {
-  Result,
-  SecurityMode,
-  ProcessStatus,
-  ProcessInfo,
-  SecurityConfig,
-  ValidationResult,
-  LogLevel,
-} from "./types";
+async function main() {
+  logger.info("Starting SSH Exoman MCP server...");
 
-// ============================================================================
-// Errors
-// ============================================================================
+  const server = createServer();
+  const transport = new StdioServerTransport();
 
-export { ErrorCode, createError, errorResult } from "./errors";
-export type { ServiceError } from "./errors";
+  await server.connect(transport);
 
-// ============================================================================
-// Config
-// ============================================================================
+  logger.info("Server connected via stdio transport");
+}
 
-export { loadConfig } from "./config";
-export type { AppConfig } from "./config";
-
-// ============================================================================
-// Logger
-// ============================================================================
-
-export { log, logger } from "./structured-logger";
-
-// ============================================================================
-// Security
-// ============================================================================
-
-export {
-  validateCommand,
-  validateCommandWithResult,
-  getSecurityInfo,
-  loadPatterns,
-} from "./security-validator";
-export type { SecurityInfo } from "./security-validator";
-
-// ============================================================================
-// Schemas
-// ============================================================================
-
-export {
-  ExecuteCommandSchema,
-  GetCommandOutputSchema,
-  GetCommandStatusSchema,
-  KillCommandSchema,
-  GetSecurityInfoSchema,
-  validateInput,
-} from "./schemas";
-export type {
-  ExecuteCommandInput,
-  GetCommandOutputInput,
-  GetCommandStatusInput,
-  KillCommandInput,
-  GetSecurityInfoInput,
-} from "./schemas";
-
-// ============================================================================
-// SSH Module
-// ============================================================================
-
-export {
-  parseSSHConfig,
-  resolveHost,
-  listHosts,
-  isComplexCommand,
-  wrapCommand,
-  ProcessManager,
-  connect,
-  executeSSHCommand,
-} from "./ssh";
-export type {
-  HostConfig,
-  ProcessStatusInfo,
-  OutputChunk,
-  SSHConnection,
-  ExecuteResult,
-} from "./ssh";
+main().catch((error) => {
+  logger.error("Fatal error", {
+    error: error instanceof Error ? error.message : "Unknown error",
+  });
+  process.exit(1);
+});
