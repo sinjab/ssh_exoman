@@ -12,6 +12,7 @@ export type {
   Result,
   SecurityMode,
   ProcessStatus,
+  ProcessInfo,
   SecurityConfig,
   ValidationResult,
   LogLevel,
@@ -68,3 +69,17 @@ export type {
   KillCommandInput,
   GetSecurityInfoInput,
 } from "./schemas";
+
+// ============================================================================
+// SSH Module
+// ============================================================================
+
+export {
+  parseSSHConfig,
+  resolveHost,
+  listHosts,
+  isComplexCommand,
+  wrapCommand,
+  ProcessManager,
+} from "./ssh";
+export type { HostConfig, ProcessStatusInfo, OutputChunk } from "./ssh";

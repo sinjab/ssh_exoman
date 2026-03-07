@@ -294,14 +294,35 @@ describe("ProcessManager", () => {
       const process = manager.getProcess(processId);
       tempFiles.push(process!.tempOutputPath, process!.tempErrorPath);
 
-      // Start kill but don't wait for escalation (will resolve quickly since we're not really running)
+      // Use force=true to avoid waiting for escalation timeout
+      // This test verifies that the signal method is called correctly
+      const result = await manager.killProcess(processId, true);
+
+      // For force kill, SIGKILL is sent immediately
+      expect(mockChannel.signal).toHaveBeenCalledWith("KILL");
+      expect(result.success).toBe(true);
+    });
+
+    test("killProcess sends SIGTERM before escalation (non-force)", async () => {
+      const mockChannel = createMockChannel();
+      const processId = manager.startProcess(
+        "example.com",
+        "sleep 100",
+        mockChannel,
+        createMockConnection()
+      );
+
+      const process = manager.getProcess(processId);
+      tempFiles.push(process!.tempOutputPath, process!.tempErrorPath);
+
+      // Start kill (non-force) - this will send SIGTERM first
       const killPromise = manager.killProcess(processId, false);
 
-      // Check that SIGTERM was sent
+      // Immediately check that SIGTERM was called (before escalation)
       expect(mockChannel.signal).toHaveBeenCalledWith("TERM");
 
-      const result = await killPromise;
-      expect(result.success).toBe(true);
+      // Now wait for the promise to complete
+      await killPromise;
     });
 
     test("Test 12: killProcess escalates to SIGKILL after 5 seconds", async () => {

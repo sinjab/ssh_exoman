@@ -16,3 +16,10 @@ export type { HostConfig } from "./config-parser";
 // ============================================================================
 
 export { isComplexCommand, wrapCommand } from "./command-detection";
+
+// ============================================================================
+// Process Manager
+// ============================================================================
+
+export { ProcessManager } from "./process-manager";
+export type { ProcessStatusInfo, OutputChunk } from "./process-manager";
