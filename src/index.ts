@@ -81,5 +81,13 @@ export {
   isComplexCommand,
   wrapCommand,
   ProcessManager,
+  connect,
+  executeSSHCommand,
 } from "./ssh";
-export type { HostConfig, ProcessStatusInfo, OutputChunk } from "./ssh";
+export type {
+  HostConfig,
+  ProcessStatusInfo,
+  OutputChunk,
+  SSHConnection,
+  ExecuteResult,
+} from "./ssh";

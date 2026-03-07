@@ -23,3 +23,17 @@ export { isComplexCommand, wrapCommand } from "./command-detection";
 
 export { ProcessManager } from "./process-manager";
 export type { ProcessStatusInfo, OutputChunk } from "./process-manager";
+
+// ============================================================================
+// SSH Client
+// ============================================================================
+
+export { connect } from "./client";
+export type { SSHConnection } from "./client";
+
+// ============================================================================
+// Command Executor
+// ============================================================================
+
+export { executeSSHCommand } from "./executor";
+export type { ExecuteResult } from "./executor";
