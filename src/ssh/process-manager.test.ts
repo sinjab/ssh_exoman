@@ -120,7 +120,7 @@ describe("ProcessManager", () => {
       manager.appendOutput(processId, Buffer.from(" world"), false);
 
       const updatedProcess = manager.getProcess(processId);
-      expect(updatedProcess?.outputSize).toBe(12);
+      expect(updatedProcess?.outputSize).toBe(11); // "hello" (5) + " world" (6) = 11
 
       manager.appendOutput(processId, Buffer.from("error"), true);
 
