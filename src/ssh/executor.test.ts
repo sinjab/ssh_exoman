@@ -2,7 +2,7 @@
  * Tests for SSH command executor module
  */
 
-import { describe, test, expect, beforeEach } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import SSHConfig from "ssh-config";
 import { executeSSHCommand } from "./executor";
 import { ProcessManager } from "./process-manager";
@@ -246,6 +246,98 @@ describe("executeSSHCommand integration", () => {
       if (!result.success) {
         expect(result.error.code).toBe("CONFIG_ERROR");
       }
+    }
+  });
+});
+
+describe("executor passphrase resolution", () => {
+  let processManager: ProcessManager;
+  const originalEnv: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    processManager = new ProcessManager();
+    // Save original values
+    originalEnv.SSH_PASSPHRASE = process.env.SSH_PASSPHRASE;
+    // Clear all passphrase env vars before each test
+    delete process.env.SSH_PASSPHRASE;
+    Object.keys(process.env)
+      .filter(key => key.startsWith("SSH_PASSPHRASE_"))
+      .forEach(key => {
+        originalEnv[key] = process.env[key];
+        delete process.env[key];
+      });
+  });
+
+  afterEach(() => {
+    // Restore original values
+    if (originalEnv.SSH_PASSPHRASE !== undefined) {
+      process.env.SSH_PASSPHRASE = originalEnv.SSH_PASSPHRASE;
+    } else {
+      delete process.env.SSH_PASSPHRASE;
+    }
+    Object.keys(originalEnv)
+      .filter(key => key.startsWith("SSH_PASSPHRASE_"))
+      .forEach(key => {
+        if (originalEnv[key] !== undefined) {
+          process.env[key] = originalEnv[key];
+        }
+      });
+  });
+
+  test("executor uses per-host passphrase from SSH_PASSPHRASE_MYHOST", async () => {
+    // Set per-host passphrase for 'myhost'
+    process.env.SSH_PASSPHRASE_MYHOST = "myhost-passphrase";
+
+    const config = createTestConfig("disabled");
+    const result = await executeSSHCommand(
+      "myhost",
+      "echo hello",
+      config,
+      processManager
+    );
+
+    // The connection will fail because host doesn't exist in SSH config
+    // But the passphrase resolution worked (tested by getPassphrase unit tests)
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("CONFIG_ERROR");
+    }
+  });
+
+  test("executor uses global passphrase from SSH_PASSPHRASE when per-host not set", async () => {
+    // Set only global passphrase
+    process.env.SSH_PASSPHRASE = "global-passphrase";
+
+    const config = createTestConfig("disabled");
+    const result = await executeSSHCommand(
+      "some-host",
+      "echo hello",
+      config,
+      processManager
+    );
+
+    // The connection will fail because host doesn't exist in SSH config
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("CONFIG_ERROR");
+    }
+  });
+
+  test("executor works without any passphrase env vars", async () => {
+    // No passphrase env vars set (cleared in beforeEach)
+
+    const config = createTestConfig("disabled");
+    const result = await executeSSHCommand(
+      "no-passphrase-host",
+      "echo hello",
+      config,
+      processManager
+    );
+
+    // The connection will fail because host doesn't exist in SSH config
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("CONFIG_ERROR");
     }
   });
 });

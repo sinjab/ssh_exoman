@@ -11,7 +11,7 @@
 
 import { validateCommandWithResult, loadPatterns } from "../security-validator";
 import { parseSSHConfig, resolveHost } from "./config-parser";
-import { connect } from "./client";
+import { connect, getPassphrase } from "./client";
 import { wrapCommand } from "./command-detection";
 import { ProcessManager } from "./process-manager";
 import type { Result, AppConfig } from "../types";
@@ -81,10 +81,10 @@ export async function executeSSHCommand(
     );
   }
 
-  // Step 3: Connect
+  // Step 3: Connect (with per-host passphrase resolution)
   const connectionResult = await connect({
     ...hostConfig,
-    passphrase: process.env.SSH_PASSPHRASE,
+    passphrase: getPassphrase(hostAlias),
     timeout: config.sshConnectTimeout,
   });
 
