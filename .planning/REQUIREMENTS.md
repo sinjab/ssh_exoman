@@ -27,8 +27,8 @@
 ### MCP Integration
 
 - [x] **MCP-01**: Server connects via stdio transport for Claude Desktop integration
-- [ ] **MCP-02**: Server exposes ssh://hosts resource listing configured SSH hosts
-- [ ] **MCP-03**: Server provides ssh_help prompt with usage guidance
+- [x] **MCP-02**: Server exposes ssh://hosts resource listing configured SSH hosts
+- [x] **MCP-03**: Server provides ssh_help prompt with usage guidance
 - [x] **MCP-04**: All tools return structured error responses with success/error_message shape
 - [x] **MCP-05**: All settings configurable via environment variables (Bun auto-loads .env)
 - [x] **MCP-06**: All tool inputs validated with Zod schemas
@@ -87,8 +87,8 @@
 | SEC-02 | Phase 1 | Complete |
 | SEC-03 | Phase 1 | Complete |
 | MCP-01 | Phase 3 | Complete |
-| MCP-02 | Phase 3 | Pending |
-| MCP-03 | Phase 3 | Pending |
+| MCP-02 | Phase 3 | Complete |
+| MCP-03 | Phase 3 | Complete |
 | MCP-04 | Phase 1 | Complete |
 | MCP-05 | Phase 1 | Complete |
 | MCP-06 | Phase 1 | Complete |
