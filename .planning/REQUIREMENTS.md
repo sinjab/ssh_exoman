@@ -30,13 +30,13 @@
 - [ ] **MCP-02**: Server exposes ssh://hosts resource listing configured SSH hosts
 - [ ] **MCP-03**: Server provides ssh_help prompt with usage guidance
 - [ ] **MCP-04**: All tools return structured error responses with success/error_message shape
-- [ ] **MCP-05**: All settings configurable via environment variables (Bun auto-loads .env)
+- [x] **MCP-05**: All settings configurable via environment variables (Bun auto-loads .env)
 - [ ] **MCP-06**: All tool inputs validated with Zod schemas
 
 ### Infrastructure
 
 - [ ] **INFRA-01**: Structured logging to stderr (never stdout in stdio mode)
-- [ ] **INFRA-02**: Configurable timeouts for SSH connect and command execution
+- [x] **INFRA-02**: Configurable timeouts for SSH connect and command execution
 
 ## v2 Requirements
 
@@ -90,10 +90,10 @@
 | MCP-02 | Phase 3 | Pending |
 | MCP-03 | Phase 3 | Pending |
 | MCP-04 | Phase 1 | Pending |
-| MCP-05 | Phase 1 | Pending |
+| MCP-05 | Phase 1 | Complete |
 | MCP-06 | Phase 1 | Pending |
 | INFRA-01 | Phase 1 | Pending |
-| INFRA-02 | Phase 1 | Pending |
+| INFRA-02 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 18 total
