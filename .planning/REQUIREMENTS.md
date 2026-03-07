@@ -35,7 +35,7 @@
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: Structured logging to stderr (never stdout in stdio mode)
+- [x] **INFRA-01**: Structured logging to stderr (never stdout in stdio mode)
 - [x] **INFRA-02**: Configurable timeouts for SSH connect and command execution
 
 ## v2 Requirements
@@ -92,7 +92,7 @@
 | MCP-04 | Phase 1 | Pending |
 | MCP-05 | Phase 1 | Complete |
 | MCP-06 | Phase 1 | Pending |
-| INFRA-01 | Phase 1 | Pending |
+| INFRA-01 | Phase 1 | Complete |
 | INFRA-02 | Phase 1 | Complete |
 
 **Coverage:**
