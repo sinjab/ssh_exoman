@@ -1,7 +1,7 @@
 /**
  * MCP Server setup for ssh-exoman
  *
- * Creates and configures the McpServer with all tools registered.
+ * Creates and configures the McpServer with all tools, resources, and prompts registered.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -13,19 +13,23 @@ import { registerGetOutput } from "./tools/output";
 import { registerGetStatus } from "./tools/status";
 import { registerKillCommand } from "./tools/kill";
 import { registerSecurityInfo } from "./tools/security-info";
+import { registerHostsResource } from "./resources/hosts";
+import { registerHelpPrompt } from "./prompts/help";
 
 // ============================================================================
 // Server Factory
 // ============================================================================
 
 /**
- * Create and configure the MCP server with all tools registered.
+ * Create and configure the MCP server with all tools, resources, and prompts registered.
  *
  * This function:
  * 1. Creates a new McpServer instance
  * 2. Loads configuration from environment
  * 3. Creates a ProcessManager for tracking SSH commands
  * 4. Registers all 5 tools with their dependencies
+ * 5. Registers the ssh://hosts resource
+ * 6. Registers the ssh_help prompt
  *
  * @returns Configured McpServer instance ready for transport connection
  */
@@ -55,7 +59,11 @@ export function createServer(): McpServer {
     logger,
   });
 
-  logger.info("MCP server created with all tools registered", {
+  // Register resource and prompt
+  registerHostsResource(server);
+  registerHelpPrompt(server);
+
+  logger.info("MCP server created with all tools, resources, and prompts registered", {
     tools: [
       "execute_command",
       "get_command_output",
@@ -63,6 +71,8 @@ export function createServer(): McpServer {
       "kill_command",
       "get_security_info",
     ],
+    resources: ["ssh://hosts"],
+    prompts: ["ssh_help"],
     securityMode: config.securityMode,
   });
 
