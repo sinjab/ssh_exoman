@@ -54,6 +54,26 @@ export interface ValidationResult {
  */
 export type ProcessStatus = "running" | "completed" | "failed" | "killed";
 
+/**
+ * Information about a background process
+ */
+export interface ProcessInfo {
+  processId: string;
+  host: string;
+  command: string;
+  status: ProcessStatus;
+  exitCode: number | null;
+  signal: string | null;
+  startTime: Date;
+  endTime: Date | null;
+  outputSize: number;
+  errorSize: number;
+  tempOutputPath: string;
+  tempErrorPath: string;
+  channel: unknown; // ssh2 Channel (typed as unknown to avoid circular deps)
+  connection: unknown; // ssh2 Client
+}
+
 // ============================================================================
 // Logging Types
 // ============================================================================

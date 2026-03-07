@@ -6,6 +6,7 @@ import type {
   SecurityConfig,
   ValidationResult,
   LogLevel,
+  ProcessInfo,
 } from "./types";
 
 // Runtime type guards to verify types at runtime
@@ -147,5 +148,97 @@ describe("LogLevel type", () => {
   test("accepts 'error' value", () => {
     const level: LogLevel = "error";
     expect(level).toBe("error");
+  });
+});
+
+describe("ProcessInfo interface", () => {
+  test("accepts valid ProcessInfo object with running status", () => {
+    const info: ProcessInfo = {
+      processId: "123e4567-e89b-12d3-a456-426614174000",
+      host: "example.com",
+      command: "ls -la",
+      status: "running",
+      exitCode: null,
+      signal: null,
+      startTime: new Date(),
+      endTime: null,
+      outputSize: 0,
+      errorSize: 0,
+      tempOutputPath: "/tmp/ssh-exoman-123e4567-e89b-12d3-a456-426614174000.out",
+      tempErrorPath: "/tmp/ssh-exoman-123e4567-e89b-12d3-a456-426614174000.err",
+      channel: null,
+      connection: null,
+    };
+
+    expect(info.processId).toBe("123e4567-e89b-12d3-a456-426614174000");
+    expect(info.status).toBe("running");
+    expect(info.exitCode).toBeNull();
+  });
+
+  test("accepts valid ProcessInfo object with completed status", () => {
+    const info: ProcessInfo = {
+      processId: "123e4567-e89b-12d3-a456-426614174001",
+      host: "server.example.com",
+      command: "echo hello",
+      status: "completed",
+      exitCode: 0,
+      signal: null,
+      startTime: new Date("2026-03-07T10:00:00Z"),
+      endTime: new Date("2026-03-07T10:00:01Z"),
+      outputSize: 6,
+      errorSize: 0,
+      tempOutputPath: "/tmp/ssh-exoman-123e4567-e89b-12d3-a456-426614174001.out",
+      tempErrorPath: "/tmp/ssh-exoman-123e4567-e89b-12d3-a456-426614174001.err",
+      channel: null,
+      connection: null,
+    };
+
+    expect(info.status).toBe("completed");
+    expect(info.exitCode).toBe(0);
+    expect(info.outputSize).toBe(6);
+  });
+
+  test("accepts valid ProcessInfo object with failed status", () => {
+    const info: ProcessInfo = {
+      processId: "123e4567-e89b-12d3-a456-426614174002",
+      host: "localhost",
+      command: "exit 1",
+      status: "failed",
+      exitCode: 1,
+      signal: null,
+      startTime: new Date(),
+      endTime: new Date(),
+      outputSize: 0,
+      errorSize: 0,
+      tempOutputPath: "/tmp/out",
+      tempErrorPath: "/tmp/err",
+      channel: null,
+      connection: null,
+    };
+
+    expect(info.status).toBe("failed");
+    expect(info.exitCode).toBe(1);
+  });
+
+  test("accepts valid ProcessInfo object with killed status", () => {
+    const info: ProcessInfo = {
+      processId: "123e4567-e89b-12d3-a456-426614174003",
+      host: "remote.host",
+      command: "sleep 100",
+      status: "killed",
+      exitCode: null,
+      signal: "TERM",
+      startTime: new Date(),
+      endTime: new Date(),
+      outputSize: 0,
+      errorSize: 0,
+      tempOutputPath: "/tmp/out",
+      tempErrorPath: "/tmp/err",
+      channel: null,
+      connection: null,
+    };
+
+    expect(info.status).toBe("killed");
+    expect(info.signal).toBe("TERM");
   });
 });
