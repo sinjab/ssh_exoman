@@ -1,8 +1,26 @@
-# SSH Exoman - MCP Server for Claude Desktop
+# SSH Exoman - GSD Project
 
 An MCP server that enables secure SSH command execution on remote hosts via Claude Desktop.
 
-## Project Structure
+## GSD Workflow
+
+This project uses the GSD (Get Shit Done) development system. Use GSD commands as the primary workflow:
+
+- `/gsd:progress` - Check current progress and route to next action
+- `/gsd:plan-phase` - Create detailed phase implementation plans
+- `/gsd:execute-phase` - Execute plans with atomic commits
+- `/gsd:verify-work` - Validate built features through UAT
+- `/gsd:debug` - Systematic debugging with persistent state
+
+**Development Tasks**: Use `/gsd:progress` to check status and route appropriately.
+
+**New Features**: Start with `/gsd:plan-phase` to create structured plans before implementation.
+
+**Bug Fixes**: Use `/gsd:debug` for systematic investigation and resolution.
+
+## Project Context
+
+### Structure
 
 ```
 src/
@@ -41,9 +59,7 @@ src/
     └── process-manager.ts
 ```
 
-## Development
-
-### Commands
+### Development Commands
 
 ```bash
 bun install          # Install dependencies
@@ -63,31 +79,31 @@ bun run src/index.ts # Run the MCP server directly
 | `SSH_PASSPHRASE` | - | Global passphrase for encrypted keys |
 | `SSH_PASSPHRASE_{HOST}` | - | Per-host passphrase (uppercase, hyphens→underscores) |
 
-## Architecture Notes
+### Architecture
 
-### MCP Tools
+#### MCP Tools
 - **execute_command**: Runs SSH commands in background, returns UUID for tracking
 - **get_command_output**: Chunked output retrieval for large results
 - **get_command_status**: Check if command is running/completed
 - **kill_command**: SIGTERM → SIGKILL escalation for process termination
 - **get_security_info**: Inspect current security configuration
 
-### Command Execution Flow
+#### Command Execution Flow
 1. `execute_command` validates against security filter (blacklist/whitelist)
 2. SSH connection established via `ssh2` library
 3. Command runs with output streaming to in-memory buffer
 4. Client can poll output/status via UUID tracking
 5. Long-running commands can be killed
 
-### Passphrase Resolution
+#### Passphrase Resolution
 Per-host passphrases checked first (`SSH_PASSPHRASE_MYHOST`), then global fallback (`SSH_PASSPHRASE`).
 
-### Security
+#### Security
 - 36 default blacklist patterns (rm -rf, sudo, shutdown, etc.)
 - Three modes: blacklist (default), whitelist, disabled
 - See `src/security-validator.ts` for pattern list
 
-## Bun-specific Notes
+### Bun Notes
 
 - Use `bun test` instead of jest/vitest
 - Bun auto-loads `.env` files, no dotenv needed
