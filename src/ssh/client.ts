@@ -26,6 +26,16 @@ export interface SSHConnection {
   hostConfig: HostConfig;
 }
 
+/**
+ * Connection options extending HostConfig
+ */
+export interface ConnectOptions extends HostConfig {
+  /** Passphrase for encrypted private key */
+  passphrase?: string;
+  /** Connection timeout in milliseconds */
+  timeout?: number;
+}
+
 // ============================================================================
 // Connection Functions
 // ============================================================================
@@ -33,16 +43,15 @@ export interface SSHConnection {
 /**
  * Connect to an SSH host with configurable timeout.
  *
- * @param hostConfig - The resolved host configuration
- * @param timeoutMs - Connection timeout in milliseconds (maps to ssh2 readyTimeout)
+ * @param options - Connection options including host config, passphrase, and timeout
  * @returns Promise resolving to Result with SSHConnection on success
  */
 export async function connect(
-  hostConfig: HostConfig,
-  timeoutMs: number
+  options: ConnectOptions
 ): Promise<Result<SSHConnection>> {
   return new Promise((resolve) => {
     const client = new Client();
+    const { passphrase, timeout = 30000, ...hostConfig } = options;
 
     client.on("ready", () => {
       resolve({
@@ -75,11 +84,12 @@ export async function connect(
       username: string;
       readyTimeout: number;
       privateKey?: Buffer;
+      passphrase?: string;
     } = {
       host: hostConfig.hostname || hostConfig.host,
       port: hostConfig.port,
       username: hostConfig.user,
-      readyTimeout: timeoutMs,
+      readyTimeout: timeout,
     };
 
     // Load private key if specified
@@ -90,6 +100,10 @@ export async function connect(
       if (fs.existsSync(keyPath)) {
         try {
           connectConfig.privateKey = fs.readFileSync(keyPath);
+          // Add passphrase if provided
+          if (passphrase) {
+            connectConfig.passphrase = passphrase;
+          }
         } catch {
           // If we can't read the key, let the connection fail naturally
           // This will result in an SSH_CONNECTION_FAILED error

@@ -82,7 +82,11 @@ export async function executeSSHCommand(
   }
 
   // Step 3: Connect
-  const connectionResult = await connect(hostConfig, config.sshConnectTimeout);
+  const connectionResult = await connect({
+    ...hostConfig,
+    passphrase: process.env.SSH_PASSPHRASE,
+    timeout: config.sshConnectTimeout,
+  });
 
   if (!connectionResult.success) {
     return connectionResult as Result<ExecuteResult>;

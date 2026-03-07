@@ -321,7 +321,10 @@ describe("ProcessManager", () => {
       // Immediately check that SIGTERM was called (before escalation)
       expect(mockChannel.signal).toHaveBeenCalledWith("TERM");
 
-      // Now wait for the promise to complete
+      // Simulate process completing to avoid 5s escalation wait
+      manager.completeProcess(processId, 0, null);
+
+      // Now wait for the promise to complete (should resolve quickly)
       await killPromise;
     });
 
