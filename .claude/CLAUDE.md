@@ -65,8 +65,11 @@ src/
 bun install          # Install dependencies
 bun test             # Run all tests
 bun test --watch     # Run tests in watch mode
+bun run build        # Build to dist/index.js
 bun run src/index.ts # Run the MCP server directly
 ```
+
+**IMPORTANT**: After any code changes, always run `bun test && bun run build` before testing with MCP.
 
 ### Environment Variables
 

@@ -78,6 +78,21 @@ describe("wrapCommand", () => {
     expect(result).toBe('/bin/sh -c "echo \\"hello world\\""');
   });
 
+  test("escapes dollar signs to prevent variable expansion", () => {
+    const result = wrapCommand("echo $HOME");
+    expect(result).toBe('/bin/sh -c "echo \\$HOME"');
+  });
+
+  test("escapes backticks to prevent command substitution", () => {
+    const result = wrapCommand("echo `date`");
+    expect(result).toBe('/bin/sh -c "echo \\`date\\`"');
+  });
+
+  test("escapes backslashes", () => {
+    const result = wrapCommand("echo test\\nmore");
+    expect(result).toBe('/bin/sh -c "echo test\\\\nmore"');
+  });
+
   test("wraps command with pipes", () => {
     const result = wrapCommand("cat file | grep foo");
     expect(result).toBe('/bin/sh -c "cat file | grep foo"');
@@ -96,5 +111,10 @@ describe("wrapCommand", () => {
   test("preserves single quotes (no escaping needed)", () => {
     const result = wrapCommand("echo 'hello'");
     expect(result).toBe("/bin/sh -c \"echo 'hello'\"");
+  });
+
+  test("escapes complex command with multiple special chars", () => {
+    const result = wrapCommand("cat << 'EOF'\nRewriteRule ^(.*)$ public/$1 [L]\nEOF");
+    expect(result).toBe('/bin/sh -c "cat << \'EOF\'\nRewriteRule ^(.*)\\$ public/\\$1 [L]\nEOF"');
   });
 });

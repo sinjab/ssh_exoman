@@ -82,15 +82,26 @@ export function isComplexCommand(command: string): boolean {
  * All commands are wrapped in `/bin/sh -c "{escaped}"` to ensure
  * predictable behavior with pipes, redirects, globbing, etc.
  *
- * Double quotes in the command are escaped as \\" to preserve them
- * in the shell wrapper.
+ * Characters that are special inside double quotes are escaped:
+ * - \\ : backslash (must be first to avoid double-escaping)
+ * - " : double quotes
+ * - $ : variable expansion
+ * - ` : command substitution
+ *
+ * This ensures the command is passed literally to the remote shell
+ * without unintended expansion.
  *
  * @param command - Command string to wrap
  * @returns Shell-wrapped command string
  */
 export function wrapCommand(command: string): string {
-  // Escape double quotes in the command
-  const escaped = command.replace(/"/g, '\\"');
+  // Escape characters that are special inside double quotes
+  // Backslash must be first to avoid double-escaping the others
+  const escaped = command
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\$/g, "\\$")
+    .replace(/`/g, "\\`");
 
   return `/bin/sh -c "${escaped}"`;
 }
