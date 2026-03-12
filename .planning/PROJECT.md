@@ -8,6 +8,16 @@ A TypeScript MCP server that gives AI assistants (like Claude Desktop) secure SS
 
 AI assistants can securely execute and manage SSH commands on remote hosts through MCP, with proper security validation and background process tracking.
 
+## Current Milestone: v2.0 SSH Agent Forwarding
+
+**Goal:** Add SSH agent forwarding capability so remote commands can authenticate with other servers using the user's local SSH keys.
+
+**Target features:**
+- Add `forwardAgent` boolean parameter to `execute_command` tool
+- Forward agent socket to remote host when enabled
+- Private keys never leave the local machine
+- Security documentation about trusted hosts requirement
+
 ## Requirements
 
 ### Validated
@@ -27,6 +37,7 @@ AI assistants can securely execute and manage SSH commands on remote hosts throu
 
 ### Active
 
+- [ ] SSH agent forwarding via `forwardAgent` parameter on execute_command
 - [ ] Transfer files via SFTP (upload and download)
 - [ ] Connection pooling with configurable reuse and TTL
 - [ ] Support HTTP transport (remote MCP access)
@@ -38,8 +49,8 @@ AI assistants can securely execute and manage SSH commands on remote hosts throu
 - Mobile or web UI — this is a headless MCP server, AI assistant IS the UI
 - Database persistence — all state is ephemeral per session
 - Multi-tenant auth — single-user server model
-- SSH agent forwarding — security risk when AI controls the agent; use ProxyJump in ~/.ssh/config instead
 - Interactive/PTY sessions — MCP is request/response, background execution covers 95% of use cases
+- SSH config ForwardAgent parsing — explicit parameter-only control for clarity
 
 ## Context
 
@@ -77,4 +88,4 @@ AI assistants can securely execute and manage SSH commands on remote hosts throu
 | registerTool() API | Current MCP SDK method (deprecated tool()) | ✓ Good |
 
 ---
-*Last updated: 2026-03-07 after v1.0 MVP milestone*
+*Last updated: 2026-03-13 after v2.0 milestone started*
