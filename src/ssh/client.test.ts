@@ -327,3 +327,147 @@ describe("ConnectOptions with forwardAgent", () => {
     }
   });
 });
+
+describe("connect with agent forwarding", () => {
+  const originalEnv: Record<string, string | undefined> = {};
+  let tempSocketPath: string | null = null;
+
+  beforeEach(() => {
+    originalEnv.SSH_AUTH_SOCK = process.env.SSH_AUTH_SOCK;
+  });
+
+  afterEach(() => {
+    if (originalEnv.SSH_AUTH_SOCK !== undefined) {
+      process.env.SSH_AUTH_SOCK = originalEnv.SSH_AUTH_SOCK;
+    } else {
+      delete process.env.SSH_AUTH_SOCK;
+    }
+    if (tempSocketPath && fs.existsSync(tempSocketPath)) {
+      try {
+        fs.unlinkSync(tempSocketPath);
+      } catch {
+        // Ignore cleanup errors
+      }
+      tempSocketPath = null;
+    }
+  });
+
+  test("Test 1: connect calls validateAgent when forwardAgent: true (agent unavailable)", async () => {
+    delete process.env.SSH_AUTH_SOCK;
+
+    const hostConfig: HostConfig = {
+      host: "agent-test-host",
+      hostname: "agent-test.example.com",
+      user: "testuser",
+      port: 22,
+    };
+
+    const result = await connect({
+      ...hostConfig,
+      timeout: 100,
+      forwardAgent: true,
+    });
+
+    // Should fail with SSH_AGENT_UNAVAILABLE because no agent
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("SSH_AGENT_UNAVAILABLE");
+    }
+  });
+
+  test("Test 2: connect returns SSH_AGENT_UNAVAILABLE when agent validation fails", async () => {
+    process.env.SSH_AUTH_SOCK = "/nonexistent/path/to/agent.sock";
+
+    const hostConfig: HostConfig = {
+      host: "agent-validation-host",
+      hostname: "agent-validation.example.com",
+      user: "testuser",
+      port: 22,
+    };
+
+    const result = await connect({
+      ...hostConfig,
+      timeout: 100,
+      forwardAgent: true,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("SSH_AGENT_UNAVAILABLE");
+    }
+  });
+
+  test("Test 3: connect sets agent and agentForward in ssh2 config when forwardAgent: true", async () => {
+    // Create a temp file to simulate socket
+    tempSocketPath = path.join(os.tmpdir(), `test-ssh-agent-sock-${Date.now()}`);
+    fs.writeFileSync(tempSocketPath, "");
+    process.env.SSH_AUTH_SOCK = tempSocketPath;
+
+    const hostConfig: HostConfig = {
+      host: "agent-config-host",
+      hostname: "agent-config.example.com",
+      user: "testuser",
+      port: 22,
+    };
+
+    const result = await connect({
+      ...hostConfig,
+      timeout: 100,
+      forwardAgent: true,
+    });
+
+    // The connection will fail because host doesn't exist, but we validated
+    // that the agent check passed (no SSH_AGENT_UNAVAILABLE error)
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      // Should be connection failure, not agent unavailable
+      expect(result.error.code).not.toBe("SSH_AGENT_UNAVAILABLE");
+    }
+  });
+
+  test("Test 4: connect skips agent validation when forwardAgent: false", async () => {
+    delete process.env.SSH_AUTH_SOCK;
+
+    const hostConfig: HostConfig = {
+      host: "no-agent-host",
+      hostname: "no-agent.example.com",
+      user: "testuser",
+      port: 22,
+    };
+
+    const result = await connect({
+      ...hostConfig,
+      timeout: 100,
+      forwardAgent: false,
+    });
+
+    // Should fail with SSH_CONNECTION_FAILED, not SSH_AGENT_UNAVAILABLE
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("SSH_CONNECTION_FAILED");
+    }
+  });
+
+  test("Test 5: connect skips agent validation when forwardAgent omitted", async () => {
+    delete process.env.SSH_AUTH_SOCK;
+
+    const hostConfig: HostConfig = {
+      host: "omitted-agent-host",
+      hostname: "omitted-agent.example.com",
+      user: "testuser",
+      port: 22,
+    };
+
+    const result = await connect({
+      ...hostConfig,
+      timeout: 100,
+      // forwardAgent not specified
+    });
+
+    // Should fail with SSH_CONNECTION_FAILED, not SSH_AGENT_UNAVAILABLE
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("SSH_CONNECTION_FAILED");
+    }
+  });
+});

@@ -115,7 +115,16 @@ export async function connect(
 ): Promise<Result<SSHConnection>> {
   return new Promise((resolve) => {
     const client = new Client();
-    const { passphrase, timeout = 30000, ...hostConfig } = options;
+    const { passphrase, timeout = 30000, forwardAgent = false, ...hostConfig } = options;
+
+    // Validate agent availability if forwarding requested
+    if (forwardAgent) {
+      const agentResult = validateAgent();
+      if (!agentResult.success) {
+        resolve(agentResult as Result<SSHConnection>);
+        return;
+      }
+    }
 
     client.on("ready", () => {
       resolve({
@@ -161,6 +170,8 @@ export async function connect(
       readyTimeout: number;
       privateKey?: Buffer;
       passphrase?: string;
+      agent?: string;
+      agentForward?: boolean;
     } = {
       host: hostConfig.hostname || hostConfig.host,
       port: hostConfig.port,
@@ -185,6 +196,12 @@ export async function connect(
           // This will result in an SSH_CONNECTION_FAILED error
         }
       }
+    }
+
+    // Add agent forwarding if requested (requires BOTH options)
+    if (forwardAgent) {
+      connectConfig.agent = process.env.SSH_AUTH_SOCK;
+      connectConfig.agentForward = true;
     }
 
     client.connect(connectConfig);
