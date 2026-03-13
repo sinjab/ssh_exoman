@@ -5,6 +5,7 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { existsSync } from "fs";
 import { GetSecurityInfoSchema } from "../schemas/get-security-info";
 import { resultToMcpResponse } from "../test-utils";
 import { getSecurityInfo, loadPatterns } from "../security-validator";
@@ -56,12 +57,18 @@ export function registerSecurityInfo(
           patterns,
         });
 
+        // Check SSH agent availability for agent forwarding
+        const agentSocket = process.env.SSH_AUTH_SOCK || null;
+        const agentAvailable = agentSocket ? existsSync(agentSocket) : false;
+
         return resultToMcpResponse({
           success: true,
           data: {
             mode: info.mode,
             patternCount: info.patternCount,
             samplePatterns: info.samplePatterns,
+            agentAvailable,
+            agentSocket,
           },
         });
       } catch (error) {

@@ -84,4 +84,19 @@ describe("get_security_info tool", () => {
     const parsed = JSON.parse(response.content[0].text);
     expect(parsed.success).toBe(true);
   });
+
+  test("returns agentAvailable and agentSocket fields", async () => {
+    registerSecurityInfo(mockServer as unknown as Parameters<typeof registerSecurityInfo>[0], {
+      config: mockConfig(),
+      logger: { info: () => {}, error: () => {} },
+    });
+
+    const handler = mockServer.tools[0].handler;
+    const response = await handler({});
+
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.success).toBe(true);
+    expect(typeof parsed.agentAvailable).toBe("boolean");
+    expect(parsed.agentSocket === null || typeof parsed.agentSocket === "string").toBe(true);
+  });
 });
