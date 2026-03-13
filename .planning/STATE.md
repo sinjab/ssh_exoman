@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: SSH Agent Forwarding
-status: planning
+status: ready_to_plan
 last_updated: "2026-03-13T00:00:00.000Z"
-last_activity: 2026-03-13 -- Milestone v2.0 started
+last_activity: 2026-03-13 -- Roadmap created for v2.0
 progress:
-  total_phases: 0
+  total_phases: 2
   completed_phases: 0
-  total_plans: 0
+  total_plans: 5
   completed_plans: 0
   percent: 0
 ---
@@ -17,17 +17,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-13 after v2.0 started)
+See: .planning/PROJECT.md (updated 2026-03-13)
 
-**Core value:** AI assistants can securely execute and manage SSH commands on remote hosts through MCP
-**Current focus:** v2.0 SSH Agent Forwarding — planning phase
+**Core value:** AI assistants can securely execute and manage SSH commands on remote hosts through MCP, with proper security validation and background process tracking.
+**Current focus:** v2.0 SSH Agent Forwarding
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-13 — Milestone v2.0 started
+Phase: 4 of 5 (Core Agent Forwarding)
+Plan: 0 of 3 in current phase
+Status: Ready to plan
+Last activity: 2026-03-13 — Roadmap created for v2.0 milestone
 
 Progress: [░░░░░░░░░░░] 0%
 
@@ -38,6 +38,22 @@ Progress: [░░░░░░░░░░░] 0%
 - Forward agent socket to remote host when enabled
 - Private keys never leave the local machine
 - Security documentation about trusted hosts requirement
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 10 (from v1.0)
+- v1.0 Timeline: March 7, 2026 (1 day)
+
+**By Phase:**
+
+| Phase | Plans | Status |
+|-------|-------|--------|
+| 1. Foundation Services | 4 | Complete |
+| 2. SSH Execution Layer | 3 | Complete |
+| 3. MCP Server Integration | 3 | Complete |
+| 4. Core Agent Forwarding | 3 | Ready to plan |
+| 5. Documentation | 2 | Not started |
 
 ## Accumulated Context
 
@@ -54,16 +70,22 @@ Progress: [░░░░░░░░░░░] 0%
 - 36 security patterns for command validation
 - Per-host passphrase via SSH_PASSPHRASE_{HOST} env vars
 
+### v2.0 Decisions
+
+- Agent forwarding must be opt-in per command (forwardAgent defaults to false)
+- SSH config ForwardAgent parsing is out of scope — explicit parameter-only control
+- No new dependencies required — ssh2 library already supports agent forwarding
+
 ### Pending Todos
 
 None.
 
 ### Blockers/Concerns
 
-None.
+- **Claude Desktop environment:** May not inherit `SSH_AUTH_SOCK` from user shell. Needs verification during testing.
 
 ## Session Continuity
 
 Last session: 2026-03-13
-Milestone: v2.0 started
-Resume: Complete requirements → roadmap workflow
+Stopped at: Roadmap created, ready to plan Phase 4
+Resume file: None
