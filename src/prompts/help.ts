@@ -39,7 +39,7 @@ export function registerHelpPrompt(server: McpServer): void {
 ## Available Tools
 
 1. **execute_command** - Run a command on a remote host via SSH
-   - Parameters: host (string), command (string), timeout (number, optional)
+   - Parameters: host (string), command (string), timeout (number, optional), forwardAgent (boolean, optional, default: false) - Forward local SSH agent to remote host. Allows remote commands to authenticate with other SSH servers using your local keys. Only enable on fully trusted hosts.
 
 2. **get_command_status** - Check if a command is still running
    - Parameters: process_id (UUID string)
