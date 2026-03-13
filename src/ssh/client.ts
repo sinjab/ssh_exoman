@@ -62,6 +62,42 @@ export interface ConnectOptions extends HostConfig {
   passphrase?: string;
   /** Connection timeout in milliseconds */
   timeout?: number;
+  /** Enable SSH agent forwarding */
+  forwardAgent?: boolean;
+}
+
+// ============================================================================
+// Agent Forwarding
+// ============================================================================
+
+/**
+ * Validate that SSH agent is available for forwarding.
+ *
+ * Checks:
+ * 1. SSH_AUTH_SOCK environment variable exists
+ * 2. Socket file exists at the path
+ *
+ * @returns Result with socketPath on success, SSH_AGENT_UNAVAILABLE error on failure
+ */
+export function validateAgent(): Result<{ socketPath: string }> {
+  const socketPath = process.env.SSH_AUTH_SOCK;
+
+  if (!socketPath) {
+    return errorResult(
+      ErrorCode.SSH_AGENT_UNAVAILABLE,
+      "SSH agent socket not found. Set SSH_AUTH_SOCK or start ssh-agent. " +
+        "If using Claude Desktop, ensure SSH_AUTH_SOCK is exported in launch environment."
+    );
+  }
+
+  if (!fs.existsSync(socketPath)) {
+    return errorResult(
+      ErrorCode.SSH_AGENT_UNAVAILABLE,
+      `SSH agent socket not found at ${socketPath}. Ensure ssh-agent is running.`
+    );
+  }
+
+  return { success: true, data: { socketPath } };
 }
 
 // ============================================================================

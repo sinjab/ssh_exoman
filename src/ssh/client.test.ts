@@ -3,8 +3,11 @@
  */
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { connect, getPassphrase } from "./client";
+import { connect, getPassphrase, validateAgent } from "./client";
 import type { HostConfig } from "./config-parser";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
 
 describe("SSH Client", () => {
   describe("connect", () => {
@@ -213,5 +216,114 @@ describe("getPassphrase", () => {
     process.env.SSH_PASSPHRASE_PROD_DB = "prod-secret";
     const result = getPassphrase("PROD_DB");
     expect(result).toBe("prod-secret");
+  });
+});
+
+describe("validateAgent", () => {
+  // Store original env values to restore after tests
+  const originalEnv: Record<string, string | undefined> = {};
+  let tempSocketPath: string | null = null;
+
+  beforeEach(() => {
+    // Save original values
+    originalEnv.SSH_AUTH_SOCK = process.env.SSH_AUTH_SOCK;
+  });
+
+  afterEach(() => {
+    // Restore original values
+    if (originalEnv.SSH_AUTH_SOCK !== undefined) {
+      process.env.SSH_AUTH_SOCK = originalEnv.SSH_AUTH_SOCK;
+    } else {
+      delete process.env.SSH_AUTH_SOCK;
+    }
+    // Clean up temp socket file if created
+    if (tempSocketPath && fs.existsSync(tempSocketPath)) {
+      try {
+        fs.unlinkSync(tempSocketPath);
+      } catch {
+        // Ignore cleanup errors
+      }
+      tempSocketPath = null;
+    }
+  });
+
+  test("Test 1: validateAgent returns success when SSH_AUTH_SOCK exists and socket file exists", () => {
+    // Create a temp file to simulate socket
+    tempSocketPath = path.join(os.tmpdir(), `test-ssh-agent-sock-${Date.now()}`);
+    fs.writeFileSync(tempSocketPath, "");
+    process.env.SSH_AUTH_SOCK = tempSocketPath;
+
+    const result = validateAgent();
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.socketPath).toBe(tempSocketPath);
+    }
+  });
+
+  test("Test 2: validateAgent returns SSH_AGENT_UNAVAILABLE when SSH_AUTH_SOCK is not set", () => {
+    delete process.env.SSH_AUTH_SOCK;
+
+    const result = validateAgent();
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("SSH_AGENT_UNAVAILABLE");
+      expect(result.error.message).toContain("SSH agent socket not found");
+      expect(result.error.message).toContain("SSH_AUTH_SOCK");
+    }
+  });
+
+  test("Test 3: validateAgent returns SSH_AGENT_UNAVAILABLE when socket file does not exist", () => {
+    process.env.SSH_AUTH_SOCK = "/nonexistent/path/to/ssh-agent.sock";
+
+    const result = validateAgent();
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("SSH_AGENT_UNAVAILABLE");
+      expect(result.error.message).toContain("SSH agent socket not found");
+      expect(result.error.message).toContain("/nonexistent/path/to/ssh-agent.sock");
+    }
+  });
+
+  test("Test 4: validateAgent returns socketPath in success result", () => {
+    // Create a temp file to simulate socket
+    tempSocketPath = path.join(os.tmpdir(), `test-ssh-agent-sock-${Date.now()}`);
+    fs.writeFileSync(tempSocketPath, "");
+    process.env.SSH_AUTH_SOCK = tempSocketPath;
+
+    const result = validateAgent();
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toHaveProperty("socketPath");
+      expect(result.data.socketPath).toBe(tempSocketPath);
+    }
+  });
+});
+
+describe("ConnectOptions with forwardAgent", () => {
+  test("Test 5: ConnectOptions includes forwardAgent?: boolean", async () => {
+    // This test verifies the type by passing forwardAgent option
+    // The connection will fail because host doesn't exist
+    const hostConfig: HostConfig = {
+      host: "test-forward-agent-host",
+      hostname: "test-forward-agent.example.com",
+      user: "testuser",
+      port: 22,
+    };
+
+    // Pass forwardAgent option - this validates the type interface
+    const result = await connect({
+      ...hostConfig,
+      timeout: 100,
+      forwardAgent: false, // Testing that forwardAgent is accepted
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe("SSH_CONNECTION_FAILED");
+    }
   });
 });
