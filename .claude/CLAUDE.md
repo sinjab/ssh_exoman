@@ -45,6 +45,7 @@ src/
 │   ├── output.ts
 │   ├── status.ts
 │   ├── kill.ts
+│   ├── resolve-host.ts
 │   └── security-info.ts
 ├── resources/            # MCP resource implementations
 │   └── hosts.ts
@@ -55,6 +56,7 @@ src/
     ├── client.ts         # SSH connection, passphrase resolution
     ├── executor.ts       # Command execution with output streaming
     ├── config-parser.ts  # SSH config parser (~/.ssh/config)
+    ├── agent-discovery.ts # SSH agent socket auto-discovery (macOS launchd, standard Unix)
     ├── command-detection.ts
     └── process-manager.ts
 ```
@@ -90,6 +92,7 @@ bun run src/index.ts # Run the MCP server directly
 - **get_command_status**: Check if command is running/completed
 - **kill_command**: SIGTERM → SIGKILL escalation for process termination
 - **get_security_info**: Inspect current security configuration
+- **resolve_host**: Resolve SSH config alias to actual IP/port/user for multi-hop operations
 
 #### Command Execution Flow
 1. `execute_command` validates against security filter (blacklist/whitelist)
@@ -100,6 +103,16 @@ bun run src/index.ts # Run the MCP server directly
 
 #### Passphrase Resolution
 Per-host passphrases checked first (`SSH_PASSPHRASE_MYHOST`), then global fallback (`SSH_PASSPHRASE`).
+
+#### SSH Agent Discovery (Zero Config on macOS)
+Automatic discovery of SSH agent socket when `SSH_AUTH_SOCK` is not set:
+
+1. **SSH_AUTH_SOCK** - Environment variable (if set)
+2. **Env file** - `~/.config/ssh-exoman/agent-sock`
+3. **macOS launchd** - `/private/tmp/com.apple.launchd.XXX/Listeners`
+4. **Standard Unix** - `/tmp/ssh-XXX/agent.NNN`
+
+On macOS, agent forwarding works out-of-the-box when Claude is launched from Finder.
 
 #### Security
 - 36 default blacklist patterns (rm -rf, sudo, shutdown, etc.)
