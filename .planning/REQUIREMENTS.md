@@ -20,7 +20,7 @@ Requirements for SSH Agent Forwarding feature. Each maps to roadmap phases.
 
 ### Documentation
 
-- [ ] **DOCS-01**: README includes security warning about agent forwarding on untrusted hosts (root socket hijacking risk)
+- [x] **DOCS-01**: README includes security warning about agent forwarding on untrusted hosts (root socket hijacking risk)
 - [x] **DOCS-02**: `ssh_help` MCP prompt includes guidance on when and how to use `forwardAgent`
 
 ## v2 Requirements
@@ -60,7 +60,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGNT-03 | Phase 4 | Complete (04-02) |
 | AGNT-04 | Phase 4 | Complete (04-02) |
 | ERRO-01 | Phase 4 | Complete (04-01) |
-| DOCS-01 | Phase 5 | Pending |
+| DOCS-01 | Phase 5 | Complete |
 | DOCS-02 | Phase 5 | Complete |
 
 **Coverage:**
