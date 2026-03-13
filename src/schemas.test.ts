@@ -32,6 +32,50 @@ describe("schemas", () => {
       }
     });
 
+    test("accepts forwardAgent: true", () => {
+      const result = ExecuteCommandSchema.safeParse({
+        host: "example.com",
+        command: "ls -la",
+        forwardAgent: true,
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.forwardAgent).toBe(true);
+      }
+    });
+
+    test("accepts forwardAgent: false", () => {
+      const result = ExecuteCommandSchema.safeParse({
+        host: "example.com",
+        command: "ls -la",
+        forwardAgent: false,
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.forwardAgent).toBe(false);
+      }
+    });
+
+    test("defaults forwardAgent to false when omitted", () => {
+      const result = ExecuteCommandSchema.safeParse({
+        host: "example.com",
+        command: "ls -la",
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.forwardAgent).toBe(false);
+      }
+    });
+
+    test("rejects non-boolean forwardAgent values", () => {
+      const result = ExecuteCommandSchema.safeParse({
+        host: "example.com",
+        command: "ls -la",
+        forwardAgent: "yes",
+      });
+      expect(result.success).toBe(false);
+    });
+
     test("rejects empty host", () => {
       const result = ExecuteCommandSchema.safeParse({
         host: "",
