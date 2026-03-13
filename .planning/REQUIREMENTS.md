@@ -9,14 +9,14 @@ Requirements for SSH Agent Forwarding feature. Each maps to roadmap phases.
 
 ### Agent Forwarding
 
-- [ ] **AGNT-01**: User can enable SSH agent forwarding via `forwardAgent: true` parameter on `execute_command`
-- [ ] **AGNT-02**: `forwardAgent` parameter defaults to `false` (explicit opt-in required)
+- [x] **AGNT-01**: User can enable SSH agent forwarding via `forwardAgent: true` parameter on `execute_command`
+- [x] **AGNT-02**: `forwardAgent` parameter defaults to `false` (explicit opt-in required)
 - [ ] **AGNT-03**: When `forwardAgent: true`, the local SSH agent socket is forwarded to the remote host
 - [ ] **AGNT-04**: Remote commands can authenticate with other SSH servers using the forwarded agent
 
 ### Error Handling
 
-- [ ] **ERRO-01**: User receives structured error when agent forwarding is requested but SSH agent is not available
+- [x] **ERRO-01**: User receives structured error when agent forwarding is requested but SSH agent is not available
 
 ### Documentation
 
@@ -55,11 +55,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AGNT-01 | Phase 4 | Pending |
-| AGNT-02 | Phase 4 | Pending |
+| AGNT-01 | Phase 4 | Complete (04-01) |
+| AGNT-02 | Phase 4 | Complete (04-01) |
 | AGNT-03 | Phase 4 | Pending |
 | AGNT-04 | Phase 4 | Pending |
-| ERRO-01 | Phase 4 | Pending |
+| ERRO-01 | Phase 4 | Complete (04-01) |
 | DOCS-01 | Phase 5 | Pending |
 | DOCS-02 | Phase 5 | Pending |
 
@@ -70,4 +70,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-13*
-*Last updated: 2026-03-13 after roadmap creation*
+*Last updated: 2026-03-13 after 04-01 completion*
