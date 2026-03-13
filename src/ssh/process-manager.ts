@@ -25,6 +25,7 @@ export interface ProcessStatusInfo {
   errorSize: number;
   startTime: Date;
   endTime: Date | null;
+  forwardAgent: boolean;
 }
 
 /**
@@ -49,13 +50,15 @@ export class ProcessManager {
    * @param command - The command being executed
    * @param channel - The ssh2 Channel for the process
    * @param connection - The ssh2 Client connection
+   * @param forwardAgent - Whether SSH agent forwarding is enabled
    * @returns The UUID process ID for tracking
    */
   startProcess(
     host: string,
     command: string,
     channel: unknown,
-    connection: unknown
+    connection: unknown,
+    forwardAgent: boolean = false
   ): string {
     const processId = crypto.randomUUID();
     const tempOutputPath = path.join(TEMP_DIR, `${TEMP_PREFIX}-${processId}.out`);
@@ -76,6 +79,7 @@ export class ProcessManager {
       tempErrorPath,
       channel,
       connection,
+      forwardAgent,
     });
 
     return processId;
@@ -164,6 +168,7 @@ export class ProcessManager {
         errorSize: process.errorSize,
         startTime: process.startTime,
         endTime: process.endTime,
+        forwardAgent: process.forwardAgent,
       },
     };
   }

@@ -168,11 +168,13 @@ describe("ProcessInfo interface", () => {
       tempErrorPath: "/tmp/ssh-exoman-123e4567-e89b-12d3-a456-426614174000.err",
       channel: null,
       connection: null,
+      forwardAgent: false,
     };
 
     expect(info.processId).toBe("123e4567-e89b-12d3-a456-426614174000");
     expect(info.status).toBe("running");
     expect(info.exitCode).toBeNull();
+    expect(info.forwardAgent).toBe(false);
   });
 
   test("accepts valid ProcessInfo object with completed status", () => {
@@ -191,11 +193,13 @@ describe("ProcessInfo interface", () => {
       tempErrorPath: "/tmp/ssh-exoman-123e4567-e89b-12d3-a456-426614174001.err",
       channel: null,
       connection: null,
+      forwardAgent: true,
     };
 
     expect(info.status).toBe("completed");
     expect(info.exitCode).toBe(0);
     expect(info.outputSize).toBe(6);
+    expect(info.forwardAgent).toBe(true);
   });
 
   test("accepts valid ProcessInfo object with failed status", () => {
@@ -214,6 +218,7 @@ describe("ProcessInfo interface", () => {
       tempErrorPath: "/tmp/err",
       channel: null,
       connection: null,
+      forwardAgent: false,
     };
 
     expect(info.status).toBe("failed");
@@ -236,9 +241,11 @@ describe("ProcessInfo interface", () => {
       tempErrorPath: "/tmp/err",
       channel: null,
       connection: null,
+      forwardAgent: true,
     };
 
     expect(info.status).toBe("killed");
     expect(info.signal).toBe("TERM");
+    expect(info.forwardAgent).toBe(true);
   });
 });

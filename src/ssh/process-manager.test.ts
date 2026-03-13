@@ -198,6 +198,7 @@ describe("ProcessManager", () => {
         expect(result.data.errorSize).toBe(5);
         expect(result.data.startTime).toBeInstanceOf(Date);
         expect(result.data.endTime).toBeInstanceOf(Date);
+        expect(result.data.forwardAgent).toBe(false);
       }
     });
 

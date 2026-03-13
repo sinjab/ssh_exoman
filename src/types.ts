@@ -72,6 +72,7 @@ export interface ProcessInfo {
   tempErrorPath: string;
   channel: unknown; // ssh2 Channel (typed as unknown to avoid circular deps)
   connection: unknown; // ssh2 Client
+  forwardAgent: boolean;
 }
 
 // ============================================================================
