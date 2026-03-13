@@ -1,217 +1,185 @@
-# Pitfalls Research
+# Pitfalls Research: SSH Agent Forwarding
 
-**Domain:** MCP SSH Server (TypeScript/Bun rebuild of Python `mcp_ssh`)
-**Researched:** 2026-03-07
-**Confidence:** HIGH (domain expertise + PRD analysis; LOW on MCP SDK v2 specifics due to pre-alpha status)
+**Domain:** SSH Agent Forwarding for ssh-exoman MCP Server
+**Researched:** 2026-03-13
+**Confidence:** HIGH (OpenSSH official documentation, ssh2 library docs, established security practices)
 
 ## Critical Pitfalls
 
-### Pitfall 1: ssh2 Connection Lifecycle Mismanagement
+### Pitfall 1: Socket Hijacking by Root Users
 
 **What goes wrong:**
-The `ssh2` library's `Client` object emits events (`ready`, `error`, `close`, `end`) asynchronously. Developers wrap `connect()` in a Promise but only handle `ready` and `error`, missing `close` and `end` events. This leads to:
-- Connections sitting in the pool that are actually dead (half-open TCP sockets)
-- Unhandled error events crashing the process (Node.js/Bun treats unhandled `error` events as fatal)
-- Connection pool returning stale clients that fail on first command
+When agent forwarding is enabled, a Unix domain socket is created on the remote server (typically `/tmp/ssh-XXXXXXXXXX/agent.XXXXX`). Any user with root access on the remote host can:
+1. Access the socket file
+2. Use your forwarded agent to authenticate to any other server you have access to
+3. Pivot through your infrastructure without your knowledge
 
 **Why it happens:**
-The ssh2 API is event-driven, not Promise-based. Most examples online show the happy path only. The PRD's connection cache tests health with `echo test`, but the ssh2 client can be in a state where it appears connected but the underlying TCP socket is dead (e.g., remote host rebooted, network partition resolved).
+The SSH agent protocol allows anyone who can access the socket to request signatures. Root users can access any file on the system, including the forwarded agent socket. The private keys never leave your local machine, but the *ability to use them* is exposed.
 
 **How to avoid:**
-- Always attach `error`, `close`, and `end` listeners on every `Client` instance, even cached ones
-- When a cached connection fails health check, destroy it explicitly with `client.end()` AND `client.destroy()` -- `end()` alone does not release the socket immediately
-- Implement a connection wrapper class that tracks state (`connecting`, `ready`, `closed`, `error`) and refuses to return clients in non-`ready` state
-- Set `keepaliveInterval` and `keepaliveCountMax` in ssh2 connect options to detect dead connections proactively
+- Document prominently: "Only use agent forwarding on hosts where you trust the root user"
+- Add a `forwardAgentTrustedHosts` allowlist configuration option
+- Log a warning every time agent forwarding is used: "Agent forwarding enabled - ensure host is trusted"
+- Consider requiring explicit acknowledgment per-session for agent forwarding
 
 **Warning signs:**
-- Tests pass locally but timeout in CI (different network conditions)
-- "ECONNRESET" or "Channel open failure" errors appearing sporadically
-- Memory growth over time (leaked socket handles)
+- Agent forwarding enabled on public/shared/CI servers
+- No documentation about trusted host requirement
+- Users unaware that root can hijack their keys
 
 **Phase to address:**
-Phase 1 (SSH Client Layer) -- connection management must be correct from the start. Retrofitting connection lifecycle handling into a pool is extremely painful.
+Phase 1 (Agent Forwarding Implementation) - Security documentation and trust model must be defined before any code is written.
 
 ---
 
-### Pitfall 2: Background Process Tracking Race Conditions
+### Pitfall 2: Agent Forwarding Enabled by Default
 
 **What goes wrong:**
-The background execution model writes PID to stdout via `echo $!`, then later checks process status via `kill -0 PID` and reads output from temp files. Multiple race conditions exist:
-1. The `echo $!` command returns before the background process has actually started, giving a PID that may not exist yet
-2. Between checking `kill -0` and reading the exit code file, the process can complete and the file can be partially written
-3. The `sync` in the wrapper script is not atomic with the exit code write -- a read between `echo $rc > file` and `sync` gets stale data on some filesystems (especially NFS)
-4. Two rapid `get_command_output` calls for the same process can read overlapping chunks
+If `forwardAgent` defaults to `true` or is enabled globally, every SSH connection will expose the agent socket. This violates the principle of least privilege and expands the attack surface unnecessarily.
 
 **Why it happens:**
-Shell background process management is inherently racy. The Python version likely handles this through careful sequencing and retry logic that is easy to miss during a rewrite.
+Developers often prioritize convenience over security. The ssh2 library's `agentForward: false` default is correct, but it is easy to flip when things "don't work."
 
 **How to avoid:**
-- Use a PID file approach: write PID to a separate file and wait for it to exist before returning from `execute_command`
-- For exit code detection, check both `kill -0` failure AND exit code file existence -- do not rely on either alone
-- Add a brief delay (100-200ms) after `echo $!` returns before considering the process "started"
-- For output chunking, use file size checks (`wc -c`) before reading to avoid partial reads
-- Consider using `flock` or atomic rename for exit code file writes: `echo $rc > file.tmp && mv file.tmp file`
+- `forwardAgent` parameter MUST default to `false` on `execute_command`
+- Never read `ForwardAgent yes` from `~/.ssh/config` (explicitly out of scope per PROJECT.md)
+- Require explicit opt-in per command: `execute_command(host, command, { forwardAgent: true })`
+- Log every use of agent forwarding for audit purposes
 
 **Warning signs:**
-- Intermittent "process not found" errors right after `execute_command` returns
-- Exit codes reading as empty strings or partial numbers
-- Output chunks containing duplicate data
+- Parameter defaults to `true`
+- Config file `ForwardAgent` settings are respected automatically
+- No audit log when agent forwarding is used
 
 **Phase to address:**
-Phase 2 (Background Process Manager) -- this is the most complex component. Get it right before building tools on top of it.
+Phase 1 (Agent Forwarding Implementation) - Default behavior is the foundation of the feature.
 
 ---
 
-### Pitfall 3: Security Validator Bypass via Shell Metacharacters
+### Pitfall 3: Agent Socket Left After Connection Close
 
 **What goes wrong:**
-The blacklist regex patterns in the PRD match literal command strings, but attackers (or overeager AI assistants) can bypass them trivially:
-- `r\m -rf /` (backslash escaping)
-- `$(rm -rf /)` (command substitution)
-- `echo "" | sudo bash` (pipe to elevated shell)
-- `eval "rm -rf /"` (eval execution)
-- `base64 -d <<< "cm0gLXJmIC8=" | bash` (encoded commands)
-- Variable expansion: `cmd="rm"; $cmd -rf /`
-- Newline injection in command strings: `ls\nrm -rf /`
-
-The PRD's blacklist catches direct invocations but misses these evasion techniques.
+If the SSH connection is terminated abnormally (crash, timeout, kill), the forwarded agent socket on the remote server may not be cleaned up. This leaves the authentication capability exposed even after you intended to stop forwarding.
 
 **Why it happens:**
-Regex-based command validation is fundamentally a losing game against shell metacharacter escaping. The Python version likely has the same weakness but it is especially dangerous in a rebuild where the security model might be considered "done" after porting the patterns.
+The ssh2 library's connection cleanup may not always execute if the process crashes. The remote sshd will eventually clean up the socket, but there is a window of vulnerability.
 
 **How to avoid:**
-- Layer 1: Normalize commands before validation -- strip backslashes, decode common encodings, expand simple variables
-- Layer 2: Block ALL commands containing `eval`, backticks, `$()` substitution, and `base64 ... | bash` patterns in the blacklist by default
-- Layer 3: In `whitelist` mode, ONLY allow commands matching the whitelist -- this is already correct in the PRD
-- Layer 4: Document clearly that `blacklist` mode is "defense in depth, not a security boundary" -- the real security is SSH key permissions and remote user privileges
-- Never claim the blacklist is "secure" -- it reduces accident surface, not attack surface
+- Always call `client.end()` in a `finally` block or cleanup handler
+- Set a short `ChannelTimeout` for agent connections (OpenSSH supports this)
+- Document that users should verify socket cleanup after abnormal termination
+- Consider implementing a "socket cleanup" command users can run
 
 **Warning signs:**
-- Security tests only test the exact patterns from the blacklist, not evasion variants
-- No tests for metacharacter bypass attempts
-- Users reporting that certain dangerous commands get through
+- Abandoned sockets in `/tmp/ssh-*` directories on remote hosts
+- Long-lived connections with agent forwarding enabled
+- No cleanup handling for abnormal termination scenarios
 
 **Phase to address:**
-Phase 1 (Security Module) -- the validator must be built with evasion awareness from the start. Add a dedicated test suite of bypass attempts.
+Phase 1 (Agent Forwarding Implementation) - Connection lifecycle management is critical.
 
 ---
 
-### Pitfall 4: MCP SDK v2 API Instability
+### Pitfall 4: Missing Agent on Local Machine
 
 **What goes wrong:**
-The PRD references MCP TypeScript SDK v2 which is in pre-alpha as of March 2026. Building against a pre-alpha API means:
-- Breaking changes between releases with no migration guide
-- APIs that exist in docs but are not yet implemented
-- Transport implementations (stdio, HTTP) that change interface
-- Zod v4 requirement that may conflict with other ecosystem libraries still on v3
+If `forwardAgent: true` is requested but no SSH agent is running locally (or `SSH_AUTH_SOCK` is not set), the connection will fail with a cryptic error. Users will not understand why "it works from my terminal but not from the MCP server."
 
 **Why it happens:**
-The PRD explicitly notes v2 is pre-alpha and recommends v1.x for production. But developers want to build on the "latest" to avoid future migration.
+The MCP server runs as a subprocess of Claude Desktop, which may not have the SSH agent environment variables propagated. This is especially common on macOS where the agent is started by the keychain integration.
 
 **How to avoid:**
-- Start with MCP SDK v1.x (`@modelcontextprotocol/sdk` on the `v1.x` branch) for the initial build
-- Abstract the MCP SDK behind a thin adapter layer so the server logic does not directly depend on SDK internals
-- Pin exact SDK versions in `package.json` (no `^` or `~` ranges)
-- Only migrate to v2 once it reaches beta/RC status
-- If using Zod v4, verify compatibility with the SDK version chosen -- some SDK versions may require Zod v3
+- Before attempting agent forwarding, verify `process.env.SSH_AUTH_SOCK` exists
+- If missing, return a clear error: "Agent forwarding requested but no SSH agent detected. Ensure SSH_AUTH_SOCK environment variable is set and ssh-agent is running."
+- Document how to verify agent availability: `ssh-add -l`
+- Support explicit agent socket path via configuration as a fallback
 
 **Warning signs:**
-- `bun install` pulls a different SDK version than expected
-- Tool registration code stops compiling after `bun update`
-- Type errors in transport setup code
+- "No such file or directory" errors when enabling agent forwarding
+- Agent forwarding works interactively but fails from MCP
+- No pre-flight check for agent availability
 
 **Phase to address:**
-Phase 1 (Project Setup + MCP Server Skeleton) -- the SDK version decision affects every subsequent phase. Lock it down immediately.
+Phase 1 (Agent Forwarding Implementation) - User experience depends on clear error messages.
 
 ---
 
-### Pitfall 5: stdio Transport Logging Corruption
+### Pitfall 5: Forwarding to Unreachable Second Hop
 
 **What goes wrong:**
-When running as a stdio MCP server (Claude Desktop integration), the server communicates over stdin/stdout using JSON-RPC. ANY output to stdout that is not valid JSON-RPC will corrupt the protocol stream and crash the connection. This includes:
-- `console.log()` debug output
-- Unhandled exception stack traces printed to stdout
-- Library warning messages (ssh2 prints warnings to stdout in some error conditions)
-- Bun's built-in error formatting going to stdout
+Agent forwarding is typically used for multi-hop SSH connections. If the second-hop host is unreachable, the error message comes from the first-hop server and can be confusing. Users blame the MCP server rather than network/host issues.
 
 **Why it happens:**
-Developers test with HTTP transport where stdout logging is fine, then deploy to Claude Desktop via stdio and everything breaks. Or they add a debug `console.log` during development and forget to remove it.
+The MCP server only controls the first connection. Errors from commands executed on the first host (like `ssh second-hop`) are just command output, not structured SSH errors.
 
 **How to avoid:**
-- Route ALL logging to stderr, never stdout -- configure the logger (Pino/custom) with `destination: 2` (fd 2 = stderr)
-- Catch ALL unhandled exceptions and rejections globally, log to stderr, and respond with a proper JSON-RPC error
-- Replace `console.log` with the structured logger everywhere -- consider banning `console.log` via ESLint rule
-- In the stdio entry point, redirect any accidental stdout writes by monkey-patching `process.stdout.write` to throw in development
-- Test the stdio transport by piping actual JSON-RPC messages and verifying output is clean JSON-RPC
+- Document common error patterns and their meanings:
+  - "ssh: connect to host X port 22: Connection refused" = second host unreachable
+  - "Permission denied (publickey)" = key not authorized on second host
+  - "Could not resolve hostname" = DNS issue
+- Do not attempt to parse command output to infer SSH errors
+- Encourage users to test multi-hop manually before using via MCP
 
 **Warning signs:**
-- Claude Desktop shows "MCP server disconnected" or "invalid JSON" errors
-- Server works fine via HTTP but fails via stdio
-- Intermittent connection drops that correlate with specific commands (the ones that trigger log output)
+- Bug reports about "SSH failing" that are actually second-hop issues
+- Attempts to handle nested SSH errors in MCP code
+- No documentation about multi-hop troubleshooting
 
 **Phase to address:**
-Phase 1 (MCP Server Setup) -- the logging architecture must be stderr-only from day one. Every subsequent phase inherits this constraint.
+Phase 2 (Documentation) - User guidance is the solution, not code changes.
 
 ---
 
-### Pitfall 6: SSH Config Parser Edge Cases
+### Pitfall 6: Agent Forwarding with Connection Pooling
 
 **What goes wrong:**
-The `~/.ssh/config` parser seems simple but has numerous edge cases that cause silent failures:
-- `Match` blocks (conditional config) are complex and rarely handled correctly
-- `Include` directives reference other config files that must be resolved
-- `ProxyJump` and `ProxyCommand` entries require multi-hop connection logic
-- Wildcard host patterns (`Host *.example.com`) match differently than exact names
-- `IdentityFile` paths with `~` need expansion, and multiple identity files per host are common
-- Config values can be quoted: `User "my user"` or `HostName "weird host.com"`
-- The first matching Host block wins for each directive (SSH's override model)
+The existing ssh-exoman architecture may eventually add connection pooling. If agent forwarding is enabled on a pooled connection, all subsequent commands on that connection will have agent access, even if they did not request it.
 
 **Why it happens:**
-Most SSH config parsers handle the 80% case (simple Host blocks with Hostname/User/Port/IdentityFile). The remaining 20% causes the parser to silently skip hosts or resolve wrong values, leading to connection failures users cannot diagnose.
+Agent forwarding is a connection-level setting in ssh2 (`agentForward: true` in connect config). Once enabled, it persists for the life of the connection.
 
 **How to avoid:**
-- Use an existing SSH config parser library if one exists for TypeScript/JS, rather than writing from scratch
-- If writing custom: support at minimum `Host`, `HostName`, `User`, `Port`, `IdentityFile`, `Include`, and `ProxyJump`
-- Skip `Match` blocks explicitly and log a warning -- do not try to evaluate them
-- Test against real-world SSH configs with multiple Host blocks, wildcards, and Include directives
-- For unrecognized directives, store them as raw key-value pairs for potential future use
+- If connection pooling is implemented, connections with agent forwarding MUST be pooled separately from non-forwarding connections
+- Tag pooled connections: `{ agentForwarding: boolean }`
+- When `execute_command` requests agent forwarding, only use a connection from the "forwarding" pool (or create a new one)
+- Document that agent-forwarding connections have different pooling behavior
 
 **Warning signs:**
-- Users report "host not found" for hosts that exist in their SSH config
-- Connections use wrong port or username
-- Tests only use simple configs with one Host block
+- Connection pooling implementation ignores agent forwarding state
+- Agent forwarding "leaks" to commands that did not request it
+- No distinction in pool between forwarded and non-forwarded connections
 
 **Phase to address:**
-Phase 1 (SSH Client Layer) -- the config parser feeds into every connection. If it silently drops hosts, all downstream features break.
+Phase 2 or later (Connection Pooling) - This is a future consideration, but architecture should anticipate it.
 
 ---
 
-### Pitfall 7: Temp File Cleanup Failures Leading to Disk Exhaustion
+### Pitfall 7: Confusing `agent` vs `agentForward` in ssh2
 
 **What goes wrong:**
-Background processes create output/error/exit files in `/tmp`. If the MCP server crashes, is killed, or loses connection to the remote host, these files are never cleaned up. Over time:
-- Remote hosts accumulate thousands of `mcp_ssh_*` files in `/tmp`
-- `/tmp` fills up, breaking other system services
-- Stale process tracking entries reference files that no longer exist (cleaned by system tmpwatch/tmpreaper)
+The ssh2 library has two related but different options:
+- `agent`: Path to the local SSH agent socket (for authentication TO the first host)
+- `agentForward`: Boolean to forward the agent TO the remote host (for authentication FROM the remote host)
+
+Mixing these up causes either authentication failures or unintended agent exposure.
 
 **Why it happens:**
-Cleanup is tied to the `kill_command` tool or explicit cleanup. But many processes complete without the AI assistant ever calling `kill_command`. Server crashes leave no cleanup path.
+The naming is similar and the concepts are related. Developers see "agent" and assume it handles forwarding.
 
 **How to avoid:**
-- Implement a periodic cleanup sweep that runs every N minutes, removing files older than a configurable TTL (default: 1 hour)
-- Use the remote system's `/tmp` with a subdirectory (`/tmp/mcp_ssh/`) that can be cleaned atomically
-- On server startup, scan for and clean orphaned files from previous sessions
-- When `get_command_output` detects a completed process, automatically clean up after delivering the final output
-- Add a `cleanup_ttl` configuration option so users can tune retention
-- Log cleanup events so users can audit temp file management
+- Use clear variable names in code: `localAgentSocket` vs `enableAgentForwarding`
+- Add code comments explaining the difference
+- In the Zod schema for `execute_command`, use `forwardAgent` (matching OpenSSH terminology) not `agentForward`
+- Document the difference in code comments and user documentation
 
 **Warning signs:**
-- `ls /tmp/mcp_ssh_*` on remote hosts shows hundreds of old files
-- Disk space alerts on remote hosts
-- "No space left on device" errors when starting new background processes
+- `agent` option used when `agentForward` was intended
+- Authentication works but forwarding does not
+- Code reviews flagging "agent" usage as potentially wrong
 
 **Phase to address:**
-Phase 2 (Background Process Manager) -- cleanup must be part of the process lifecycle, not an afterthought.
+Phase 1 (Agent Forwarding Implementation) - Correct API design prevents confusion.
 
 ---
 
@@ -219,99 +187,91 @@ Phase 2 (Background Process Manager) -- cleanup must be part of the process life
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Inline ssh2 calls in tool handlers | Faster initial development | Connection management scattered everywhere, impossible to swap SSH library | Never -- always go through a client abstraction layer |
-| Synchronous SSH config parsing at request time | No caching complexity | Re-parses config file on every connection, slow with large configs | MVP only, add caching before release |
-| Hardcoded `/tmp` for remote temp files | Works on most Linux hosts | Fails on macOS remotes (`/tmp` is per-user), Windows via WSL, custom tmpdir configs | Never -- make it configurable per-host |
-| Single connection per host (no pooling) | Simpler connection management | Serial command execution, slow for rapid sequential commands | MVP only, pool before any real usage |
-| `console.log` for logging | Zero setup | Breaks stdio transport, no log levels, no structured output | Never -- use structured logger from day one |
-| Skipping Zod validation on responses | Slightly faster responses | Silently returns malformed data that confuses AI clients | Never -- validate both inputs and outputs |
+| Default `forwardAgent: true` | Users don't have to think about it | Every connection exposes agent, major security risk | Never |
+| Respect SSH config `ForwardAgent` | Matches user's existing config | Implicit security exposure, hard to audit | Never (explicitly out of scope) |
+| Skip agent availability check | Simpler code path | Cryptic runtime errors | Never |
+| Single pool for all connections | Simpler pooling implementation | Agent forwarding leaks to non-forwarding commands | Never if pooling is implemented |
+| No audit logging of agent forwarding | Less log noise | No forensic trail of who used forwarding when | Never |
 
 ## Integration Gotchas
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| ssh2 `exec()` | Not handling the `stderr` stream separately from `stdout` -- data events mix | Always attach separate `data` handlers to both `stdout` and `stderr` streams from the `Channel` object |
-| ssh2 SFTP | Using `fastGet`/`fastPut` which use parallel reads/writes and can overwhelm slow connections | Use `createReadStream`/`createWriteStream` for large files with configurable highWaterMark; `fastGet`/`fastPut` for small files |
-| Claude Desktop stdio | Sending `Content-Type` headers or HTTP-style responses on stdout | stdio transport is raw JSON-RPC over newline-delimited JSON, not HTTP |
-| MCP SDK tool registration | Returning plain strings instead of `CallToolResult` with `content` array | Always return `{ content: [{ type: "text", text: JSON.stringify(result) }] }` |
-| ssh2 key loading | Using `fs.readFileSync` for key files | Use `Bun.file().text()` per project conventions; also handle encrypted keys by catching the "encrypted" error and prompting for passphrase |
-| Bun + ssh2 native modules | Assuming ssh2 works identically under Bun as Node.js | ssh2 has optional native crypto bindings (`cpu-features`, `nan`). Test early that ssh2 works under Bun. If native bindings fail, ssh2 falls back to pure JS crypto (slower but functional) |
+| ssh2 `connect()` | Setting `agentForward: true` without `agent` option | Both must be set: `agent: process.env.SSH_AUTH_SOCK, agentForward: true` |
+| ssh2 `exec()` | Expecting different auth behavior for forwarded commands | The exec command is just a shell command; if it uses SSH, it uses the forwarded agent transparently |
+| Claude Desktop env | Assuming `SSH_AUTH_SOCK` is inherited from user shell | Verify in startup log; may need to configure Claude Desktop to pass through env vars |
+| macOS Keychain | Assuming ssh-agent is always available | On macOS, the agent may be Keychain-integrated; test that `ssh-add -l` works before assuming forwarding will work |
+| Windows Pageant | Using `agentForward` without `agent: 'pageant'` | On Windows, must explicitly set `agent: 'pageant'` for agent access |
 
 ## Performance Traps
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Re-parsing SSH config on every tool call | Noticeable latency (50-200ms) per command | Parse once at startup, cache in memory, watch file for changes with `fs.watch` | Immediately noticeable with fast-firing AI assistants |
-| Creating new SSH connections per command | 1-3 second connection overhead per tool call, AI assistant appears slow | Connection pooling with health checks and TTL-based expiry | At any scale -- SSH handshake is inherently slow |
-| Reading entire command output into memory | Server OOM on large outputs (e.g., `find /` or log tailing) | Stream-based output with chunking, enforce `maxOutputSize` limit server-side | When output exceeds ~50MB |
-| Health-checking cached connections with `echo test` | Adds 100-500ms latency on every cached connection use | Use ssh2's keepalive mechanism instead of active health checks; only health-check on error | When connection pool is heavily used |
-| Regex-compiling blacklist patterns on every validation call | CPU spike on rapid command submissions | Compile patterns once at startup, store as `RegExp` instances | At ~100+ commands/minute |
+| Agent confirmation prompts blocking | Commands hang indefinitely if `ssh-add -c` was used | Warn users not to use confirmation-required keys with automated systems; timeout agent operations | Immediately if confirmation keys are used |
+| Agent socket under load | Multiple concurrent forwarded commands slow down | The agent socket is single-threaded; limit concurrent agent-using commands | At ~10+ concurrent forwarded commands |
+| Agent timeout mid-operation | Long-running commands lose auth mid-execution | Use keys with no timeout, or set long `ssh-add -t` duration; document that agent timeout breaks long commands | Commands running longer than agent timeout |
 
 ## Security Mistakes
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Logging full commands including passwords or secrets | Credentials in log files: `mysql -p'secret123'` appears in logs | Truncate or redact command strings in logs; never log full commands at INFO level |
-| Storing SSH key passphrases in environment variables as plaintext | Passphrase visible in process listing (`/proc/PID/environ`), Bun's `.env` files | Document that passphrases should use SSH agent instead; warn if `SSH_KEY_PHRASE` is set |
-| Not validating `host` parameter against SSH config | Attackers can specify arbitrary hostnames like `evil.com` not in SSH config | Only allow connections to hosts present in `~/.ssh/config`; reject arbitrary hostnames |
-| Allowing path traversal in `transfer_file` local paths | AI assistant can read/write arbitrary local files: `../../etc/shadow` | Validate and resolve local paths; consider a configurable allowed directory for transfers |
-| Exposing raw SSH error messages to AI clients | Error messages may contain internal hostnames, usernames, key paths | Sanitize error messages before returning; log full errors to stderr only |
-| Not rate-limiting tool calls | AI assistant in a loop can execute thousands of commands | Add configurable rate limits per host and globally |
+| Enabling on shared/bastion hosts | Other users (or compromised accounts) can access socket | Document trusted host requirement; consider host allowlist |
+| No audit trail | Cannot determine post-incident which commands used agent forwarding | Log every `forwardAgent: true` invocation with timestamp, host, user |
+| Ignoring socket permissions | Socket may be world-readable on misconfigured systems | Document that socket permissions are managed by sshd; warn if detection is possible |
+| Forwarding to compromised host | Attacker gains ability to pivot through infrastructure | This is inherent to agent forwarding; document as accepted risk for trusted hosts only |
+| Long-lived forwarded connections | Extended window for socket hijacking | Prefer short-lived connections when agent forwarding; document risk of long sessions |
 
 ## UX Pitfalls
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Cryptic error messages like "SSH2 Error: Channel open failure" | Users cannot diagnose whether it is a config, auth, or network problem | Map ssh2 error codes to human-readable messages: "Could not connect to host 'X' -- check that the host is reachable and your SSH key is valid" |
-| No indication of which SSH config file was loaded | Users with multiple SSH configs do not know why hosts are missing | Log the config file path at startup; include it in `get_security_info` response |
-| `execute_command` returns partial output with `has_more_output: true` but no guidance | AI assistant does not know to call `get_command_output` to get the rest | Include a hint in the response: "Use get_command_output with process_id 'X' and start_byte Y to retrieve remaining output" |
-| Silent failure when SSH key has wrong permissions | ssh2 connects but auth fails with unhelpful "All configured authentication methods failed" | Check key file permissions (should be 600) before attempting connection; include specific fix in error message |
+| "No agent found" with no guidance | User doesn't know how to start agent | Error message: "SSH agent not detected. Run `eval $(ssh-agent)` and `ssh-add` or verify SSH_AUTH_SOCK environment variable." |
+| Silent failure when agent times out | Command fails mysteriously mid-execution | If possible, detect agent timeout and report; otherwise document this failure mode |
+| Confusing second-hop errors | User blames MCP server for network issues | Document: "Errors from nested SSH commands appear as command output, not MCP errors. Test multi-hop SSH manually first." |
+| No indication when forwarding is active | User forgets agent is exposed | Log "Agent forwarding enabled for this connection" prominently; include in command status if possible |
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Connection pooling:** Often missing TTL-based expiry -- verify connections are evicted after configurable timeout, not just on error
-- [ ] **Background processes:** Often missing orphan cleanup -- verify server handles restart/crash recovery for temp files
-- [ ] **Security validator:** Often missing metacharacter bypass tests -- verify `$(rm -rf /)`, backtick variants, and base64 pipe bypass are all blocked
-- [ ] **SSH config parser:** Often missing `Include` directive support -- verify configs with `Include ~/.ssh/config.d/*` are resolved
-- [ ] **stdio transport:** Often missing stdout purity -- verify NO non-JSON-RPC output appears on stdout under any error condition
-- [ ] **File transfer:** Often missing large file handling -- verify transfers of 100MB+ files do not OOM the server
-- [ ] **Error handling:** Often missing timeout cleanup -- verify that timed-out commands still get their temp files cleaned up
-- [ ] **Kill command:** Often missing SIGKILL fallback verification -- verify that `kill -9` is actually sent after SIGTERM grace period
-- [ ] **Zod schemas:** Often missing output validation -- verify responses are validated, not just inputs
-- [ ] **Logging:** Often missing correlation IDs -- verify that log entries for a single tool call can be traced together
+- [ ] **Agent availability check:** Often missing -- verify code checks `SSH_AUTH_SOCK` before attempting forwarding
+- [ ] **Default value:** Often wrong -- verify `forwardAgent` defaults to `false` with explicit test
+- [ ] **Audit logging:** Often missing -- verify every `forwardAgent: true` is logged with context
+- [ ] **Error messages:** Often cryptic -- verify "no agent" error is actionable and clear
+- [ ] **Documentation:** Often incomplete -- verify trusted host requirement is prominently documented
+- [ ] **Connection cleanup:** Often missing -- verify agent socket cleanup on connection close/abort
+- [ ] **Config file respect:** Often accidentally implemented -- verify `~/.ssh/config` ForwardAgent is NOT read
 
 ## Recovery Strategies
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Connection pool corruption | LOW | Restart server; connections are ephemeral. Add pool reset endpoint for runtime recovery |
-| Temp file disk exhaustion | MEDIUM | SSH into affected hosts and `rm /tmp/mcp_ssh_*`; add automated cleanup to prevent recurrence |
-| Security bypass discovered | HIGH | Immediately switch to `whitelist` mode; audit command logs for malicious activity; patch validator and re-deploy |
-| stdio transport corruption | LOW | Restart Claude Desktop; fix the offending `console.log`; add stdout purity test to CI |
-| SSH config parser bug | MEDIUM | Identify affected hosts; add them as explicit environment variable overrides until parser is fixed |
-| MCP SDK breaking change | MEDIUM | Pin to last working version; read changelog; adapt adapter layer. This is why the abstraction layer matters |
+| Agent used on compromised host | HIGH | Immediately remove compromised host from trust; rotate all keys that were in agent; audit access logs for unauthorized use |
+| Socket left after crash | LOW | SSH to host and remove `/tmp/ssh-*` directory; or wait for sshd cleanup (typically 10-60 seconds) |
+| Agent forwarding enabled by default | MEDIUM | Change default, release new version; communicate security advisory for previous behavior |
+| Pooling leaks agent access | HIGH | Flush all connection pools; implement separate pooling; audit for unauthorized access |
 
 ## Pitfall-to-Phase Mapping
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| ssh2 connection lifecycle | Phase 1: SSH Client Layer | Unit tests for error/close/end events; integration test with dropped connection |
-| Background process race conditions | Phase 2: Process Manager | Tests with rapid sequential execute/status/output calls; test with slow-starting commands |
-| Security validator bypass | Phase 1: Security Module | Dedicated bypass test suite with 20+ evasion patterns |
-| MCP SDK instability | Phase 1: Project Setup | Pin exact version; verify tools register and respond correctly; add SDK version to startup log |
-| stdio transport logging | Phase 1: MCP Server Setup | CI test that pipes JSON-RPC to server and verifies stdout is clean JSON-RPC only |
-| SSH config parser edge cases | Phase 1: SSH Client Layer | Test suite with real-world SSH configs (Include, wildcards, multiple IdentityFiles) |
-| Temp file cleanup | Phase 2: Process Manager | Test that simulates server crash and verifies cleanup on restart |
-| Bun + ssh2 compatibility | Phase 1: Project Setup | Smoke test that ssh2 connects under Bun runtime; document any workarounds needed |
+| Socket hijacking awareness | Phase 1: Implementation + Documentation | Security documentation reviewed; warning logged on every use |
+| Default to false | Phase 1: Implementation | Explicit test that `execute_command` without `forwardAgent` does not forward |
+| Agent availability check | Phase 1: Implementation | Test with unset `SSH_AUTH_SOCK` returns clear error |
+| Connection lifecycle | Phase 1: Implementation | Test abnormal termination; verify cleanup |
+| Agent vs agentForward confusion | Phase 1: Implementation | Code review; clear variable naming |
+| Connection pooling interaction | Future: Connection Pooling Phase | When pooling is implemented, verify separate pools for forwarded/non-forwarded |
 
 ## Sources
 
-- ssh2 library documentation and known issues (npm package `ssh2`, maintained by mscdex)
-- MCP TypeScript SDK repository: https://github.com/modelcontextprotocol/typescript-sdk
-- Project PRD.md analysis (detailed review of proposed architecture, security patterns, and background execution strategy)
-- OpenSSH config specification (`man ssh_config`) for parser edge cases
-- Domain expertise in SSH connection management, shell escaping, and process lifecycle patterns
+- OpenBSD ssh_config(5) manual page - Official documentation for ForwardAgent with security warning
+  - https://man.openbsd.org/ssh_config.5 (HIGH confidence)
+  - Excerpt: "Agent forwarding should be enabled with caution. Users with the ability to bypass file permissions on the remote host (for the agent's Unix-domain socket) can access the local agent through the forwarded connection."
+- ssh2 npm package documentation - Implementation details for `agent` and `agentForward` options
+  - https://github.com/mscdex/ssh2 (HIGH confidence)
+  - `agentForward: true` requires `agent` to also be set
+- PROJECT.md - Project context (explicitly out of scope: SSH config ForwardAgent parsing)
+- Existing PITFALLS.md - Base project pitfalls to extend, not replace
+- Domain expertise in SSH agent protocol and security implications
 
 ---
-*Pitfalls research for: MCP SSH Server (TypeScript/Bun)*
-*Researched: 2026-03-07*
+*Pitfalls research for: SSH Agent Forwarding (ssh-exoman v2.0)*
+*Researched: 2026-03-13*

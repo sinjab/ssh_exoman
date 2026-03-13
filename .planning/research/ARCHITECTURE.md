@@ -1,7 +1,7 @@
 # Architecture Research
 
 **Domain:** MCP SSH Server (AI-native remote command execution)
-**Researched:** 2026-03-07
+**Researched:** 2026-03-07 (v1.0), 2026-03-13 (v2.0 agent forwarding update)
 **Confidence:** HIGH (well-defined protocol, mature SSH libraries, reference Python implementation exists)
 
 ## Standard Architecture
@@ -10,69 +10,69 @@
 
 ```
                      MCP Clients
-          (Claude Desktop, other AI tools)
-                         |
-         ________________|________________
-        |                                 |
-   stdio transport                  HTTP transport
-   (stdin/stdout)              (StreamableHTTP POST)
-        |                                 |
-        |_____________    ________________|
-                      |  |
-                      v  v
-          +--------------------------+
-          |      MCP Server Core     |
-          |  (McpServer from SDK)    |
-          |  - Tool registration     |
-          |  - Resource registration |
-          |  - Prompt registration   |
-          +-----+-------+------+----+
-                |       |      |
-       +--------+  +----+---+ +--------+
-       |           |         |          |
-  +----v----+ +----v----+ +-v-------+ +-v----------+
-  | Tool     | | Tool    | | Tool   | | Resource/  |
-  | Handlers | | Handlers| | Handler| | Prompt     |
-  | (exec,   | | (output,| | (file  | | Handlers   |
-  |  kill)   | |  status)| | xfer)  | | (hosts,    |
-  +----+-----+ +----+----+ +---+----+ |  help)     |
-       |             |          |      +-----+------+
-       |             |          |            |
-  +----v-------------v----------v------------v---+
-  |              Service Layer                    |
-  |  +----------------+  +-------------------+   |
-  |  | Security       |  | Process Manager   |   |
-  |  | Validator      |  | (UUID tracking,   |   |
-  |  | (blacklist/    |  |  lifecycle mgmt)  |   |
-  |  |  whitelist)    |  +-------------------+   |
-  |  +----------------+                          |
-  +------------------+---------------------------+
-                     |
-  +------------------v---------------------------+
-  |              SSH Layer                        |
-  |  +----------------+  +-------------------+   |
-  |  | Connection      |  | SSH Config       |   |
-  |  | Manager         |  | Parser           |   |
-  |  | (pooling, TTL,  |  | (~/.ssh/config)  |   |
-  |  |  health checks) |  +-------------------+  |
-  |  +-------+--------+                          |
-  |          |          +-------------------+     |
-  |          +----------| Command Executor  |     |
-  |          |          | (simple/complex,  |     |
-  |          |          |  background exec) |     |
-  |          |          +-------------------+     |
-  |          |          +-------------------+     |
-  |          +----------| File Transfer     |     |
-  |                     | (SFTP upload/     |     |
-  |                     |  download)        |     |
-  |                     +-------------------+     |
-  +------------------+---------------------------+
-                     |  SSH Protocol (ssh2)
-                     v
-          +---------------------+
-          |   Remote SSH Hosts  |
-          | (Linux/macOS/etc.)  |
-          +---------------------+
+         (Claude Desktop, other AI tools)
+                        |
+        ________________|________________
+       |                                 |
+  stdio transport                  HTTP transport
+  (stdin/stdout)              (StreamableHTTP POST)
+       |                                 |
+       |_____________    ________________|
+                     |  |
+                     v  v
+         +--------------------------+
+         |      MCP Server Core     |
+         |  (McpServer from SDK)    |
+         |  - Tool registration     |
+         |  - Resource registration |
+         |  - Prompt registration   |
+         +-----+-------+------+----+
+               |       |      |
+      +--------+  +----+---+ +--------+
+      |           |         |          |
+ +----v----+ +----v----+ +-v-------+ +-v----------+
+ | Tool     | | Tool    | | Tool   | | Resource/  |
+ | Handlers | | Handlers| | Handler| | Prompt     |
+ | (exec,   | | (output,| | (file  | | Handlers   |
+ |  kill)   | |  status)| | xfer)  | | (hosts,    |
+ +----+-----+ +----+----+ +---+----+ |  help)     |
+      |             |          |      +-----+------+
+      |             |          |            |
+ +----v-------------v----------v------------v---+
+ |              Service Layer                    |
+ |  +----------------+  +-------------------+   |
+ |  | Security       |  | Process Manager   |   |
+ |  | Validator      |  | (UUID tracking,   |   |
+ |  | (blacklist/    |  |  lifecycle mgmt)  |   |
+ |  |  whitelist)    |  +-------------------+   |
+ |  +----------------+                          |
+ +------------------+---------------------------+
+                    |
+ +------------------v---------------------------+
+ |              SSH Layer                        |
+ |  +----------------+  +-------------------+   |
+ |  | Connection      |  | SSH Config       |   |
+ |  | Manager         |  | Parser           |   |
+ |  | (pooling, TTL,  |  | (~/.ssh/config)  |   |
+ |  |  health checks) |  +-------------------+  |
+ |  +-------+--------+                          |
+ |          |          +-------------------+     |
+ |          +----------| Command Executor  |     |
+ |          |          | (simple/complex,  |     |
+ |          |          |  background exec) |     |
+ |          |          +-------------------+     |
+ |          |          +-------------------+     |
+ |          +----------| File Transfer     |     |
+ |                     | (SFTP upload/     |     |
+ |                     |  download)        |     |
+ |                     +-------------------+     |
+ +------------------+---------------------------+
+                    |  SSH Protocol (ssh2)
+                    v
+         +---------------------+
+         |   Remote SSH Hosts  |
+         | (Linux/macOS/etc.)  |
+         +---------------------+
 ```
 
 ### Component Responsibilities
@@ -461,6 +461,327 @@ This is a single-user, single-instance MCP server. Traditional web-scale concern
 
 The PRD suggests Express for HTTP transport, but per project conventions (CLAUDE.md), use `Bun.serve()` instead. The MCP SDK's `StreamableHTTPServerTransport` needs a request/response interface. Bun.serve() can provide this by wrapping its Request/Response into the format the transport expects, or by using a compatibility adapter. This is a known integration point that needs verification during implementation.
 
+---
+
+## v2.0 Update: SSH Agent Forwarding Architecture
+
+### Overview
+
+SSH agent forwarding enables remote commands to authenticate with other SSH servers using the user's local SSH keys. This is essential for scenarios like:
+- `git clone` from private repositories on a remote host
+- SSH hopping (connecting to Server B from Server A)
+- CI/CD operations that require SSH authentication
+
+**Key Security Property:** Private keys never leave the local machine. The ssh-agent performs signing operations locally and forwards only the signatures.
+
+### Current Data Flow (v1.0)
+
+```
+execute_command MCP call
+         |
+         v
++------------------+
+| Zod validation   | (ExecuteCommandSchema: host, command, timeout)
++------------------+
+         |
+         v
++------------------+
+| Security check   | (validateCommandWithResult)
++------------------+
+         |
+         v
++------------------+
+| Host resolution  | (resolveHost from ssh/config-parser)
++------------------+
+         |
+         v
++------------------+
+| SSH connection   | (connect from ssh/client)
+|  - privateKey    |
+|  - passphrase    |
++------------------+
+         |
+         v
++------------------+
+| Process tracking | (ProcessManager.startProcess)
++------------------+
+         |
+         v
++------------------+
+| Command exec     | (client.exec with wrapped command)
++------------------+
+```
+
+### Updated Data Flow with Agent Forwarding (v2.0)
+
+```
+execute_command MCP call { host, command, forwardAgent: true }
+         |
+         v
++------------------+
+| Zod validation   | (ExecuteCommandSchema: host, command, timeout, forwardAgent)
++------------------+
+         |
+         v
++------------------+
+| Security check   | (validateCommandWithResult)
++------------------+
+         |
+         v
++------------------+
+| Host resolution  | (resolveHost from ssh/config-parser)
++------------------+
+         |
+         v
++------------------+
+| SSH connection   | (connect from ssh/client)
+|  - privateKey    |
+|  - passphrase    |
+|  - agent: SSH_AUTH_SOCK      <-- NEW
+|  - agentForward: true        <-- NEW
++------------------+
+         |
+         v
++------------------+
+| Process tracking | (ProcessManager.startProcess)
++------------------+
+         |
+         v
++------------------+
+| Command exec     | (client.exec)
+|  - Remote command can now use SSH_AUTH_SOCK
+|  - git clone, ssh, scp work with local keys
++------------------+
+```
+
+### Component Modification Summary
+
+| Component | Change Type | Description |
+|-----------|-------------|-------------|
+| `schemas/execute-command.ts` | MODIFY | Add `forwardAgent: z.boolean().optional().default(false)` |
+| `ssh/client.ts` | MODIFY | Add agent configuration to `ConnectOptions` and `connect()` |
+| `ssh/executor.ts` | MODIFY | Pass `forwardAgent` through execution pipeline |
+| `tools/execute.ts` | MODIFY | Pass `forwardAgent` from MCP params to executor |
+| `errors.ts` | MODIFY | Add `AGENT_NOT_AVAILABLE` error code |
+
+### Detailed Changes
+
+#### 1. `schemas/execute-command.ts` (MODIFY)
+
+```typescript
+import { z } from "zod";
+
+export const ExecuteCommandSchema = z.object({
+  host: z.string().min(1, "Host is required").max(253, "Host name too long"),
+  command: z.string().min(1, "Command is required").max(10000, "Command too long"),
+  timeout: z.number().int().positive().optional(),
+  forwardAgent: z.boolean().optional().default(false),  // NEW
+});
+
+export type ExecuteCommandInput = z.infer<typeof ExecuteCommandSchema>;
+```
+
+**Rationale:** Opt-in by default. Users must explicitly enable agent forwarding per command.
+
+#### 2. `ssh/client.ts` (MODIFY)
+
+```typescript
+// Extend ConnectOptions interface
+export interface ConnectOptions extends HostConfig {
+  passphrase?: string;
+  timeout?: number;
+  forwardAgent?: boolean;  // NEW
+}
+
+// In connect() function
+export async function connect(
+  options: ConnectOptions
+): Promise<Result<SSHConnection>> {
+  return new Promise((resolve) => {
+    const client = new Client();
+    const { passphrase, timeout = 30000, forwardAgent = false, ...hostConfig } = options;
+
+    // ... existing error handlers ...
+
+    const connectConfig: {
+      host: string;
+      port: number;
+      username: string;
+      readyTimeout: number;
+      privateKey?: Buffer;
+      passphrase?: string;
+      agent?: string;           // NEW
+      agentForward?: boolean;   // NEW
+    } = {
+      host: hostConfig.hostname || hostConfig.host,
+      port: hostConfig.port,
+      username: hostConfig.user,
+      readyTimeout: timeout,
+    };
+
+    // ... existing key loading ...
+
+    // NEW: Agent forwarding configuration
+    if (forwardAgent) {
+      if (!process.env.SSH_AUTH_SOCK) {
+        return errorResult(
+          ErrorCode.AGENT_NOT_AVAILABLE,
+          "SSH agent forwarding requested but SSH_AUTH_SOCK is not set. "
+          + "Ensure ssh-agent is running."
+        );
+      }
+      connectConfig.agent = process.env.SSH_AUTH_SOCK;
+      connectConfig.agentForward = true;
+    }
+
+    client.connect(connectConfig);
+  });
+}
+```
+
+**Rationale:**
+- Uses `SSH_AUTH_SOCK` environment variable (standard OpenSSH agent socket)
+- Sets `agentForward: true` in connection config to enable forwarding for the connection lifetime
+- Validates agent availability before attempting connection
+
+#### 3. `ssh/executor.ts` (MODIFY)
+
+```typescript
+export interface ExecutorOptions {
+  forwardAgent?: boolean;  // NEW
+}
+
+export async function executeSSHCommand(
+  hostAlias: string,
+  command: string,
+  config: AppConfig,
+  processManager: ProcessManager,
+  options?: ExecutorOptions  // NEW optional parameter
+): Promise<Result<ExecuteResult>> {
+  // ... existing security validation ...
+
+  // Pass forwardAgent to connect
+  const connectionResult = await connect({
+    ...hostConfig,
+    passphrase: getPassphrase(hostAlias),
+    timeout: config.sshConnectTimeout,
+    forwardAgent: options?.forwardAgent ?? false,  // NEW
+  });
+
+  // ... rest of execution ...
+}
+```
+
+#### 4. `tools/execute.ts` (MODIFY)
+
+```typescript
+async (params) => {
+  try {
+    deps.logger.info("Executing command", {
+      host: params.host,
+      command: params.command.substring(0, 100),
+      forwardAgent: params.forwardAgent,  // NEW
+    });
+
+    const result = await executeSSHCommand(
+      params.host,
+      params.command,
+      deps.config,
+      deps.processManager,
+      { forwardAgent: params.forwardAgent ?? false }  // NEW
+    );
+
+    return resultToMcpResponse(result);
+  } catch (error) {
+    // ... existing error handling ...
+  }
+}
+```
+
+#### 5. `errors.ts` (MODIFY)
+
+```typescript
+export enum ErrorCode {
+  // ... existing codes ...
+
+  // Agent-related errors
+  AGENT_NOT_AVAILABLE = "AGENT_NOT_AVAILABLE",
+}
+```
+
+### Architectural Pattern: Environment Variable Resolution
+
+**What:** Resolve agent socket from environment at connection time.
+**When:** Agent forwarding is requested via `forwardAgent: true`.
+**Trade-offs:** Runtime resolution provides flexibility but requires environment setup.
+
+```typescript
+// Pattern: Environment variable resolution with validation
+if (forwardAgent) {
+  if (!process.env.SSH_AUTH_SOCK) {
+    return errorResult(
+      ErrorCode.AGENT_NOT_AVAILABLE,
+      "SSH agent forwarding requested but SSH_AUTH_SOCK is not set."
+    );
+  }
+  connectConfig.agent = process.env.SSH_AUTH_SOCK;
+  connectConfig.agentForward = true;
+}
+```
+
+### Anti-Patterns for Agent Forwarding
+
+#### Anti-Pattern 1: Hardcoded Agent Socket Path
+
+**What people do:** Hardcode `/var/run/ssh-agent.socket` or similar paths.
+**Why it's wrong:** Agent socket paths vary by system and session.
+**Do this instead:** Use `process.env.SSH_AUTH_SOCK` which is set by the SSH agent.
+
+#### Anti-Pattern 2: Always-On Agent Forwarding
+
+**What people do:** Enable agent forwarding by default for all connections.
+**Why it's wrong:** Security risk - remote host can use your keys for duration of connection.
+**Do this instead:** Require explicit opt-in via `forwardAgent: true` parameter.
+
+#### Anti-Pattern 3: Ignoring Agent Availability
+
+**What people do:** Set `agentForward: true` without checking if agent is available.
+**Why it's wrong:** Connection fails silently or with confusing errors.
+**Do this instead:** Check `process.env.SSH_AUTH_SOCK` exists and provide clear error if not.
+
+### Security Model
+
+1. **Keys Never Leave Local Machine:** The SSH agent holds private keys locally. Only signing operations are forwarded.
+
+2. **Trusted Host Requirement:** Users should only enable agent forwarding to hosts they trust. The remote host can perform signing operations with the user's keys while the connection is active.
+
+3. **Connection-Scoped:** Agent forwarding is enabled for the lifetime of the SSH connection. When the connection closes, the remote host can no longer use the keys.
+
+4. **Opt-In Only:** The `forwardAgent` parameter defaults to `false`. Users must explicitly enable it per command.
+
+### Build Order for Agent Forwarding Feature
+
+Based on dependencies:
+
+1. **errors.ts** - Add `AGENT_NOT_AVAILABLE` error code (no dependencies)
+2. **schemas/execute-command.ts** - Add `forwardAgent` parameter (no dependencies)
+3. **ssh/client.ts** - Add agent configuration to `connect()` (depends on errors.ts)
+4. **ssh/executor.ts** - Pass `forwardAgent` through (depends on client.ts changes)
+5. **tools/execute.ts** - Pass `forwardAgent` from params (depends on all above)
+
+### Integration Points
+
+| Dependency | Integration | Notes |
+|------------|-------------|-------|
+| ssh2 | `agent` and `agentForward` config options | Already in use, no new dependencies |
+| OpenSSH Agent | `SSH_AUTH_SOCK` environment variable | Standard agent, user must have it running |
+
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| tools/execute.ts -> ssh/executor.ts | ExecutorOptions object | New optional parameter |
+| ssh/executor.ts -> ssh/client.ts | ConnectOptions object | Extended with forwardAgent |
+| ssh/client.ts -> ssh2 Client | Connection config | Uses agent + agentForward options |
+
 ## Sources
 
 - Project PRD.md (detailed reference specification from Python version analysis)
@@ -468,14 +789,16 @@ The PRD suggests Express for HTTP transport, but per project conventions (CLAUDE
 - CLAUDE.md (Bun runtime conventions)
 - MCP TypeScript SDK repository: https://github.com/modelcontextprotocol/typescript-sdk
 - MCP Protocol specification (JSON-RPC over stdio/HTTP)
-- ssh2 npm package (mature SSH2 client for Node.js/Bun)
+- ssh2 npm package (mature SSH2 client for Node.js/Bun): https://www.npmjs.com/package/ssh2
+- ssh2 GitHub repository: https://github.com/mscdex/ssh2
 
 **Confidence notes:**
 - HIGH confidence on overall architecture -- this follows standard MCP server patterns with well-understood SSH primitives.
 - HIGH confidence on component boundaries -- the Python reference implementation validates the separation of concerns.
+- HIGH confidence on agent forwarding integration -- ssh2 library has mature, well-documented support for `agent` and `agentForward` options.
 - MEDIUM confidence on MCP SDK v2 API specifics -- the PRD documents v2 patterns but the SDK is pre-alpha and may have changed. Verify `McpServer.tool()`, `McpServer.resource()`, `McpServer.prompt()` signatures against installed SDK version during implementation.
 - MEDIUM confidence on Bun + StreamableHTTPServerTransport compatibility -- needs verification that Bun.serve() can integrate with the SDK's HTTP transport without Express.
 
 ---
 *Architecture research for: MCP SSH Server (ssh-exoman)*
-*Researched: 2026-03-07*
+*Researched: 2026-03-07 (v1.0), updated 2026-03-13 (v2.0 agent forwarding)*

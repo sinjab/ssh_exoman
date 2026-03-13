@@ -1,154 +1,271 @@
-# Technology Stack
+# Stack Research: SSH Agent Forwarding
 
-**Project:** ssh-exoman (MCP SSH Server)
-**Researched:** 2026-03-07
+**Project:** ssh-exoman v2.0
+**Feature:** SSH Agent Forwarding
+**Researched:** 2026-03-13
+**Confidence:** HIGH
 
-## Recommended Stack
+## Executive Summary
 
-### Runtime
+**No new dependencies required.** SSH agent forwarding is fully supported by the existing `ssh2@1.17.0` library via the `agentForward: boolean` configuration option. The implementation requires only code changes to leverage existing library capabilities.
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| Bun | ^1.3 | Runtime & package manager | Project constraint. Native TS execution, fast startup (important for stdio MCP servers), built-in test runner. | HIGH |
+## Recommended Changes
 
-### MCP Framework
+### Core Configuration (ssh2)
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| @modelcontextprotocol/sdk | ^1.27.1 | MCP protocol implementation | The official SDK from Anthropic. Provides `McpServer` high-level API with `registerTool`, `registerResource`, `registerPrompt`. Supports both stdio and Streamable HTTP transports. Has first-class Bun support via `WebStandardStreamableHTTPServerTransport`. | HIGH |
+| Option | Type | Purpose | Why |
+|--------|------|---------|-----|
+| `agentForward` | `boolean` | Enable OpenSSH agent forwarding (`auth-agent@openssh.com`) | When set to `true` at connection time, ssh2 requests agent forwarding for the entire connection lifetime. Remote commands can then use the local SSH agent for authentication. |
+| `agent` | `string \| BaseAgent` | Specify SSH agent socket path or custom agent | Required when `agentForward: true` to provide access to the local agent. Use `process.env.SSH_AUTH_SOCK` on Unix/Linux/macOS or `"pageant"` on Windows. |
 
-### Schema Validation
+### Integration Points
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| zod | ^3.25 or ^4.0 | Tool input/output schema validation | MCP SDK peer dependency. Tool registration uses Zod schemas directly for input validation. The SDK accepts either Zod 3.25+ or Zod 4.x. Use Zod 4 since it installed as latest and the SDK supports it. | HIGH |
+| File | Change Required | Rationale |
+|------|-----------------|-----------|
+| `src/ssh/client.ts` | Add `agentForward?: boolean` to `ConnectOptions` | Pass forwarding flag through connection layer |
+| `src/ssh/client.ts` | Add `agent?: string` to connection config build | Forward agent socket path to ssh2 |
+| `src/ssh/executor.ts` | Add `forwardAgent` parameter to `executeSSHCommand` | Allow tool-level control of forwarding |
+| `src/schemas/execute-command.ts` | Add `forwardAgent: z.boolean().optional()` | Expose parameter via MCP tool |
+| `src/tools/execute.ts` | Wire `forwardAgent` through to executor | Connect MCP layer to SSH layer |
 
-### SSH Libraries
-
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| ssh2 | ^1.17.0 | SSH connections, command execution, SFTP | The only mature, pure-JS SSH2 implementation for Node/Bun. No native bindings (critical for Bun compatibility). Supports connection pooling patterns, exec, shell, SFTP subsystem. Used by ssh2-sftp-client under the hood. | HIGH |
-| @types/ssh2 | ^1.15.5 | TypeScript types for ssh2 | ssh2 does not ship its own types. DefinitelyTyped provides comprehensive type definitions. | HIGH |
-
-### SSH Config Parsing
-
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| ssh-config | ^5.1.0 | Parse ~/.ssh/config files | Zero-dependency, TypeScript types included, handles Host/Match blocks, wildcards, ProxyJump. The standard library for SSH config parsing in JS/TS. | HIGH |
-
-### Supporting Libraries
-
-| Library | Version | Purpose | When to Use | Confidence |
-|---------|---------|---------|-------------|------------|
-| uuid | ^11.x | Generate UUIDs for background process tracking | Every background command needs a tracking UUID. Could also use `crypto.randomUUID()` (built into Bun) instead to avoid the dependency. | MEDIUM |
-
-## Alternatives Considered
-
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| Runtime | Bun | Node.js | Project constraint mandates Bun. Bun also has faster startup (matters for stdio MCP servers launched per-session). |
-| SSH | ssh2 | node-ssh | node-ssh is a thin wrapper around ssh2. We need low-level control for connection pooling and background process management. Go direct. |
-| SSH | ssh2 | ssh2-promise | Tiny wrapper, last updated 2020, only 1.0.3. Dead project. |
-| SFTP | ssh2 (built-in) | ssh2-sftp-client | ssh2-sftp-client is a convenience wrapper around ssh2's SFTP subsystem. For our use case (upload/download single files), using ssh2's SFTP directly is simpler and avoids an extra dependency. The wrapper adds reconnect logic we don't need (we have our own connection pool). |
-| Config parsing | ssh-config | Manual parsing | SSH config is surprisingly complex (Match blocks, wildcards, Include directives). Don't reinvent this. |
-| Schema validation | Zod 4 | Zod 3.25 | Both work with MCP SDK. Zod 4 is the current latest and has better performance. Since this is a new project, go with latest. |
-| HTTP transport | WebStandardStreamableHTTPServerTransport | StreamableHTTPServerTransport (Node.js wrapper) | The web-standard version works natively with Bun.serve(). The Node.js wrapper adds unnecessary @hono/node-server dependency. |
-| HTTP transport | WebStandardStreamableHTTPServerTransport | Express-based SSE transport | The SDK's SSE transport is legacy. Streamable HTTP is the current MCP transport spec. |
-| Logging | console + MCP sendLoggingMessage | pino / consola | MCP servers communicate logs via the protocol's `notifications/message` method (sendLoggingMessage). External logging libraries add complexity. Use console for stderr debug output and MCP logging for client-visible messages. |
-| Process UUIDs | crypto.randomUUID() | uuid package | Built into Bun/Web APIs. Zero dependencies. Prefer this over adding uuid. |
-
-## Key Architecture Decisions from Stack
-
-### 1. Transport Strategy
-
-The MCP SDK v1.27 provides three server transports:
-
-- **StdioServerTransport** -- For Claude Desktop integration. Reads stdin, writes stdout. Uses `node:stream` Readable/Writable (Bun compatible).
-- **WebStandardStreamableHTTPServerTransport** -- For remote HTTP access. Uses Web Standard `Request`/`Response` APIs. Explicitly documented as Bun-compatible. Integrates directly with `Bun.serve()`.
-- **StreamableHTTPServerTransport** -- Node.js HTTP wrapper. Skip this; use the web-standard version.
-
-**Decision:** Use `StdioServerTransport` for Claude Desktop, `WebStandardStreamableHTTPServerTransport` for HTTP. Both transports connect to the same `McpServer` instance.
-
-### 2. Tool Registration Pattern
-
-The SDK provides `McpServer.registerTool()` (new API, replaces deprecated `.tool()`):
-
-```typescript
-import { McpServer } from "@modelcontextprotocol/sdk/server";
-import { z } from "zod";
-
-const server = new McpServer({ name: "ssh-exoman", version: "1.0.0" });
-
-server.registerTool("ssh_execute", {
-  description: "Execute a command on a remote host",
-  inputSchema: {
-    host: z.string().describe("SSH host to connect to"),
-    command: z.string().describe("Command to execute"),
-  },
-}, async (args, extra) => {
-  // Implementation
-  return { content: [{ type: "text", text: "output" }] };
-});
-```
-
-### 3. No Express, No Hono
-
-The MCP SDK bundles express and hono as dependencies internally, but for Bun-native HTTP we bypass those entirely. The `WebStandardStreamableHTTPServerTransport.handleRequest()` accepts a standard `Request` and returns a `Response` -- exactly what `Bun.serve()` routes expect.
-
-```typescript
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-
-const transport = new WebStandardStreamableHTTPServerTransport({
-  sessionIdGenerator: () => crypto.randomUUID(),
-});
-
-Bun.serve({
-  port: 3000,
-  async fetch(req) {
-    return transport.handleRequest(req);
-  },
-});
-```
-
-### 4. Zod Version
-
-The MCP SDK accepts `zod@^3.25 || ^4.0` as a peer dependency. Zod 4 (currently 4.3.6) installed as `latest`. The SDK's internal `zod-compat.js` handles both versions transparently.
-
-## Installation
+### No New Dependencies
 
 ```bash
-# Core dependencies
-bun add @modelcontextprotocol/sdk ssh2 ssh-config zod
-
-# Dev dependencies
-bun add -d @types/ssh2 @types/bun
+# No new packages needed
+# Existing stack fully supports agent forwarding:
+# - ssh2@1.17.0: Has agentForward support (verified in @types/ssh2)
+# - @types/ssh2@1.15.5: Provides TypeScript types for agentForward
 ```
 
-**That's it.** No express, no dotenv, no uuid, no logging library. The stack is deliberately minimal:
-- 3 runtime dependencies (MCP SDK, ssh2, ssh-config) + zod as peer dep
-- 2 dev dependencies (types)
+## SSH2 Agent Forwarding API
 
-## Bun Compatibility Notes
+### Connection Configuration
 
-| Library | Bun Compatible | Notes |
-|---------|---------------|-------|
-| @modelcontextprotocol/sdk | YES | WebStandardStreamableHTTPServerTransport explicitly lists Bun support. StdioServerTransport uses node:stream (Bun compatible). |
-| ssh2 | YES | Pure JavaScript implementation (no native addons). Uses node:crypto, node:net, node:stream -- all supported by Bun. Optional CPU-intensive crypto can fall back to JS when native bindings unavailable. |
-| ssh-config | YES | Zero dependencies, pure JS parsing. |
-| zod | YES | Pure JS, no runtime dependencies. |
+The ssh2 `ConnectConfig` interface already includes:
 
-## Potential Risks
+```typescript
+export interface ConnectConfig {
+  // ... other options ...
 
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| ssh2 crypto performance in Bun | LOW | ssh2 has optional native crypto bindings (`cpu-features`). Without them, falls back to pure JS. Performance impact negligible for typical SSH session counts. |
-| StdioServerTransport uses node:stream | LOW | Bun has mature node:stream compatibility. This is a well-tested code path. |
-| MCP SDK ships express/hono as hard deps | LOW | They install but we don't import them. Tree-shaking at the import level means they don't affect runtime. Just bloats node_modules. |
+  /** Path to ssh-agent's UNIX socket for ssh-agent-based user authentication (or 'pageant' when using Pagent on Windows). */
+  agent?: BaseAgent | string;
+
+  /** Set to `true` to use OpenSSH agent forwarding (`auth-agent@openssh.com`) for the life of the connection. */
+  agentForward?: boolean;
+}
+```
+
+### Usage Pattern
+
+```typescript
+import { Client } from "ssh2";
+
+const client = new Client();
+
+client.on("ready", () => {
+  // Connection established with agent forwarding enabled
+  // Remote commands can now use the forwarded agent
+  client.exec("ssh user@another-server 'git clone repo'", (err, stream) => {
+    // The remote ssh command uses the forwarded agent for authentication
+    // Private keys never leave the local machine
+  });
+});
+
+client.connect({
+  host: "bastion.example.com",
+  username: "user",
+  privateKey: fs.readFileSync("/path/to/key"),
+  agentForward: true,           // Enable forwarding for connection
+  agent: process.env.SSH_AUTH_SOCK,  // Use local agent
+});
+```
+
+### Agent Detection
+
+The `createAgent()` helper from ssh2 automatically selects the appropriate agent:
+
+```typescript
+import { createAgent } from "ssh2";
+
+// Auto-detects:
+// - Windows + "pageant" -> PageantAgent
+// - Windows + path -> CygwinAgent
+// - Unix + path -> OpenSSHAgent
+const agent = createAgent(process.env.SSH_AUTH_SOCK || "pageant");
+```
+
+### BaseAgent Interface (for reference)
+
+The ssh2 library provides agent abstraction via `BaseAgent` class:
+
+```typescript
+export abstract class BaseAgent {
+  // Get identities from agent
+  abstract getIdentities(cb: IdentityCallback): void;
+
+  // Sign data with a key
+  abstract sign(pubKey, data, options?, cb?): void;
+
+  // Optional: Get stream for agent forwarding
+  // This is what enables forwarding to work
+  getStream?(cb: GetStreamCallback): void;
+}
+```
+
+## Current Codebase Integration
+
+### Existing `connect()` Function (src/ssh/client.ts)
+
+```typescript
+// Current signature
+export async function connect(
+  options: ConnectOptions
+): Promise<Result<SSHConnection>> {
+
+// Current ConnectOptions extends HostConfig
+export interface ConnectOptions extends HostConfig {
+  passphrase?: string;
+  timeout?: number;
+}
+
+// Current connectConfig build (lines 121-133)
+const connectConfig: {
+  host: string;
+  port: number;
+  username: string;
+  readyTimeout: number;
+  privateKey?: Buffer;
+  passphrase?: string;
+} = {
+  host: hostConfig.hostname || hostConfig.host,
+  port: hostConfig.port,
+  username: hostConfig.user,
+  readyTimeout: timeout,
+};
+```
+
+### Required Changes to client.ts
+
+```typescript
+// Updated ConnectOptions
+export interface ConnectOptions extends HostConfig {
+  passphrase?: string;
+  timeout?: number;
+  forwardAgent?: boolean;  // NEW: Enable agent forwarding
+}
+
+// Updated connectConfig type
+const connectConfig: {
+  host: string;
+  port: number;
+  username: string;
+  readyTimeout: number;
+  privateKey?: Buffer;
+  passphrase?: string;
+  agentForward?: boolean;  // NEW
+  agent?: string;          // NEW
+} = {
+  host: hostConfig.hostname || hostConfig.host,
+  port: hostConfig.port,
+  username: hostConfig.user,
+  readyTimeout: timeout,
+};
+
+// Add after privateKey handling
+if (options.forwardAgent) {
+  connectConfig.agentForward = true;
+  connectConfig.agent = process.env.SSH_AUTH_SOCK;
+}
+```
+
+## Platform Considerations
+
+| Platform | Agent Socket | Notes |
+|----------|-------------|-------|
+| macOS/Linux | `$SSH_AUTH_SOCK` | Typically `/tmp/ssh-XXXXXXXX/agent.XXXXX` |
+| Windows (Pageant) | `"pageant"` | Literal string triggers Pageant integration |
+| Windows (WSL) | `$SSH_AUTH_SOCK` | Uses WSL's ssh-agent |
+| Windows (Cygwin) | Path to socket | Auto-detected by ssh2 |
+
+## Security Implications
+
+### What Agent Forwarding Does
+
+1. Forwards the **agent protocol**, not the private keys
+2. Remote server can request signatures from local agent
+3. Private keys **never leave the local machine**
+4. User must approve each use (if agent requires confirmation)
+
+### Security Concerns
+
+| Concern | Severity | Mitigation |
+|---------|----------|------------|
+| Trusted host requirement | HIGH | Document that agent forwarding should only be used with trusted hosts. The remote host's root user can access the forwarded agent. |
+| AI-controlled forwarding | MEDIUM | Require explicit `forwardAgent: true` parameter - never default to enabled. Log when forwarding is used. |
+| Session hijacking | MEDIUM | Agent forwarding is per-connection. When connection closes, forwarding ends. |
+
+### Recommended Security Patterns
+
+```typescript
+// Log when agent forwarding is requested
+if (options.forwardAgent) {
+  logger.info("Agent forwarding requested", {
+    host: hostConfig.host,
+    securityNote: "Only use with trusted hosts"
+  });
+}
+
+// Require explicit opt-in (never default to true)
+const forwardAgent = options.forwardAgent === true; // Explicit check
+```
+
+## What NOT to Add
+
+| Avoid | Why | Instead |
+|-------|-----|---------|
+| `ssh2-sftp-client` | Not needed for agent forwarding | Use existing ssh2 connection |
+| Custom agent implementation | ssh2 handles this | Use `process.env.SSH_AUTH_SOCK` |
+| SSH config `ForwardAgent` parsing | Out of scope per PROJECT.md | Require explicit parameter |
+| Agent caching | Security risk | Create fresh agent reference per connection |
+| `node-ssh` wrapper | Loses low-level control | Continue using ssh2 directly |
+
+## Testing Strategy
+
+### Unit Tests
+
+```typescript
+// Test: agentForward is passed to ssh2
+it("should set agentForward when forwardAgent is true", async () => {
+  const mockConnect = vi.fn();
+  // ... verify connectConfig.agentForward === true
+});
+
+// Test: agent is set to SSH_AUTH_SOCK
+it("should use SSH_AUTH_SOCK for agent", async () => {
+  process.env.SSH_AUTH_SOCK = "/tmp/test-agent";
+  // ... verify connectConfig.agent === "/tmp/test-agent"
+});
+```
+
+### Integration Tests
+
+```typescript
+// Test: Commands can use forwarded agent
+it("should allow git clone via forwarded agent", async () => {
+  // Requires running ssh-agent with loaded key
+  // Connects to host with agent forwarding
+  // Runs: ssh git@github.com repo-info
+  // Verifies authentication succeeds via agent
+});
+```
 
 ## Sources
 
-- npm registry: `@modelcontextprotocol/sdk@1.27.1` (published 2026-02-24) -- verified via `npm view`
-- MCP SDK type definitions: inspected `dist/esm/server/mcp.d.ts`, `stdio.d.ts`, `streamableHttp.d.ts`, `webStandardStreamableHttp.d.ts` directly from installed package
-- WebStandardStreamableHTTPServerTransport docs comment: "can run on any runtime that supports Web Standards: Node.js 18+, Cloudflare Workers, Deno, Bun, etc."
-- npm registry: `ssh2@1.17.0`, `ssh-config@5.1.0`, `ssh2-sftp-client@12.1.0`, `zod@4.3.6` -- all verified via `npm view`
-- Bun version: 1.3.10 (local installation)
+- `@types/ssh2@1.15.5` (installed) - TypeScript definitions for `ConnectConfig.agentForward` and `ConnectConfig.agent` - HIGH confidence
+- `@types/ssh2@1.15.5` - `BaseAgent` class with `getStream()` method for forwarding - HIGH confidence
+- ssh2 GitHub: https://github.com/mscdex/ssh2 - Official documentation - HIGH confidence (via type definitions verified)
+- PROJECT.md - Confirmed agent forwarding is explicit parameter only, no SSH config parsing - HIGH confidence
+
+---
+*Stack research for: SSH Agent Forwarding feature*
+*Researched: 2026-03-13*
