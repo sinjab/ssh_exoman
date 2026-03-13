@@ -4,19 +4,10 @@ An MCP server that enables secure SSH command execution on remote hosts via Clau
 
 ## GSD Workflow
 
-This project uses the GSD (Get Shit Done) development system. Use GSD commands as the primary workflow:
-
-- `/gsd:progress` - Check current progress and route to next action
-- `/gsd:plan-phase` - Create detailed phase implementation plans
-- `/gsd:execute-phase` - Execute plans with atomic commits
-- `/gsd:verify-work` - Validate built features through UAT
-- `/gsd:debug` - Systematic debugging with persistent state
-
-**Development Tasks**: Use `/gsd:progress` to check status and route appropriately.
-
-**New Features**: Start with `/gsd:plan-phase` to create structured plans before implementation.
-
-**Bug Fixes**: Use `/gsd:debug` for systematic investigation and resolution.
+> **⚠️ MANDATORY**: This project follows the GSD development system. You MUST follow the [GSD.md](GSD.md) workflow for ALL development tasks.
+>
+> - **Start every session**: `/gsd:progress`
+> - **Before any work**: Check [GSD.md](GSD.md) for the correct command
 
 ## Project Context
 
