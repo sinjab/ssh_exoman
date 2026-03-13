@@ -1,5 +1,25 @@
 # Milestones
 
+## v2.0 SSH Agent Forwarding (Shipped: 2026-03-13)
+
+**Phases completed:** 2 phases, 5 plans, 3 tasks
+
+**Key accomplishments:**
+- Added `forwardAgent` parameter to `execute_command` tool for SSH agent forwarding (opt-in by default)
+- Implemented `validateAgent()` for SSH agent availability validation with helpful error messages
+- Wired forwardAgent through SSH client to ssh2 library with both `agent` and `agentForward` config
+- Added `agentAvailable` and `agentSocket` fields to `get_security_info` response
+- Added security documentation to README with trusted hosts warning and usage examples
+- Updated `ssh_help` MCP prompt with forwardAgent parameter guidance
+
+**Stats:**
+- Files modified: ~12
+- Lines of code: ~6,511 TypeScript
+- Tests: 289 passing (+28 from v1.0)
+- Timeline: March 13, 2026
+
+---
+
 ## v1.0 MVP (Shipped: 2026-03-07)
 
 **Phases completed:** 3 phases, 10 plans

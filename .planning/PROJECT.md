@@ -2,21 +2,11 @@
 
 ## What This Is
 
-A TypeScript MCP server that gives AI assistants (like Claude Desktop) secure SSH capabilities — executing remote commands and managing background processes on remote hosts. The v1.0 MVP delivers a working stdio-connected server with security validation, process tracking, and full Claude Desktop integration.
+A TypeScript MCP server that gives AI assistants (like Claude Desktop) secure SSH capabilities — executing remote commands, managing background processes on remote hosts, and forwarding SSH agent for secure key-less authentication to downstream servers.
 
 ## Core Value
 
 AI assistants can securely execute and manage SSH commands on remote hosts through MCP, with proper security validation and background process tracking.
-
-## Current Milestone: v2.0 SSH Agent Forwarding
-
-**Goal:** Add SSH agent forwarding capability so remote commands can authenticate with other servers using the user's local SSH keys.
-
-**Target features:**
-- Add `forwardAgent` boolean parameter to `execute_command` tool
-- Forward agent socket to remote host when enabled
-- Private keys never leave the local machine
-- Security documentation about trusted hosts requirement
 
 ## Requirements
 
@@ -34,10 +24,12 @@ AI assistants can securely execute and manage SSH commands on remote hosts throu
 - ✓ Support stdio transport (Claude Desktop integration) — v1.0
 - ✓ Structured error responses for all failure modes — v1.0
 - ✓ Structured logging — v1.0
+- ✓ SSH agent forwarding via `forwardAgent` parameter on execute_command — v2.0
+- ✓ Agent availability reporting via `get_security_info` — v2.0
+- ✓ Security documentation for agent forwarding (trusted hosts warning) — v2.0
 
 ### Active
 
-- [ ] SSH agent forwarding via `forwardAgent` parameter on execute_command
 - [ ] Transfer files via SFTP (upload and download)
 - [ ] Connection pooling with configurable reuse and TTL
 - [ ] Support HTTP transport (remote MCP access)
@@ -54,16 +46,17 @@ AI assistants can securely execute and manage SSH commands on remote hosts throu
 
 ## Context
 
-**Shipped v1.0 MVP:**
-- 3 phases, 10 plans executed in single day (March 7, 2026)
-- ~5,821 TypeScript LOC across 26 source files
-- 261 tests passing
+**Shipped v2.0 SSH Agent Forwarding:**
+- 2 phases, 5 plans executed (March 13, 2026)
+- ~6,511 TypeScript LOC across 26 source files
+- 289 tests passing
 - Tech stack: Bun runtime, MCP TypeScript SDK v2, Zod 4, ssh2
 
 **Architecture highlights:**
 - Clean separation: foundation services → SSH layer → MCP integration
 - Result<T> pattern throughout for structured error handling
 - TDD approach with 4:1 test-to-code ratio
+- Agent forwarding via ssh2 `agent` and `agentForward` config options
 
 ## Constraints
 
@@ -86,6 +79,9 @@ AI assistants can securely execute and manage SSH commands on remote hosts throu
 | Per-host passphrase env vars | SSH_PASSPHRASE_{HOST} for flexibility | ✓ Good |
 | schema._zod.def.shape | Zod 4 compatibility with MCP SDK | ✓ Good |
 | registerTool() API | Current MCP SDK method (deprecated tool()) | ✓ Good |
+| forwardAgent defaults to false | Security best practice - explicit opt-in required | ✓ Good |
+| validateAgent() before connect | Early failure with helpful error messages | ✓ Good |
+| Both agent + agentForward required | ssh2 library requires both config options | ✓ Good |
 
 ---
-*Last updated: 2026-03-13 after v2.0 milestone started*
+*Last updated: 2026-03-13 after v2.0 milestone completion*
