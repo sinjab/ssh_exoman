@@ -458,3 +458,87 @@ describe("ProcessManager", () => {
     });
   });
 });
+
+describe("ProcessManager with forwardAgent", () => {
+  let manager: ProcessManager;
+  const tempFiles: string[] = [];
+
+  beforeEach(() => {
+    manager = new ProcessManager();
+  });
+
+  afterEach(() => {
+    // Clean up any temp files created during tests
+    for (const file of tempFiles) {
+      try {
+        if (fs.existsSync(file)) {
+          fs.unlinkSync(file);
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+    tempFiles.length = 0;
+  });
+
+  test("Test 1: startProcess stores forwardAgent in ProcessInfo", () => {
+    const mockChannel = { signal: mock(() => {}), on: mock(() => {}), close: mock(() => {}) };
+    const mockConnection = { end: mock(() => {}), on: mock(() => {}) };
+
+    const processId = manager.startProcess(
+      "example.com",
+      "ssh-add -l",
+      mockChannel,
+      mockConnection,
+      true // forwardAgent: true
+    );
+
+    const process = manager.getProcess(processId);
+    expect(process).toBeDefined();
+    expect(process?.forwardAgent).toBe(true);
+
+    tempFiles.push(process!.tempOutputPath, process!.tempErrorPath);
+  });
+
+  test("Test 2: getStatus returns forwardAgent in ProcessStatusInfo", () => {
+    const mockChannel = { signal: mock(() => {}), on: mock(() => {}), close: mock(() => {}) };
+    const mockConnection = { end: mock(() => {}), on: mock(() => {}) };
+
+    const processId = manager.startProcess(
+      "example.com",
+      "ssh-add -l",
+      mockChannel,
+      mockConnection,
+      true // forwardAgent: true
+    );
+
+    const process = manager.getProcess(processId);
+    tempFiles.push(process!.tempOutputPath, process!.tempErrorPath);
+
+    manager.completeProcess(processId, 0, null);
+
+    const result = manager.getStatus(processId);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.forwardAgent).toBe(true);
+    }
+  });
+
+  test("startProcess defaults forwardAgent to false when not specified", () => {
+    const mockChannel = { signal: mock(() => {}), on: mock(() => {}), close: mock(() => {}) };
+    const mockConnection = { end: mock(() => {}), on: mock(() => {}) };
+
+    const processId = manager.startProcess(
+      "example.com",
+      "ls -la",
+      mockChannel,
+      mockConnection
+      // forwardAgent not specified
+    );
+
+    const process = manager.getProcess(processId);
+    expect(process?.forwardAgent).toBe(false);
+
+    tempFiles.push(process!.tempOutputPath, process!.tempErrorPath);
+  });
+});
