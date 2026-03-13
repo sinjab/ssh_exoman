@@ -86,6 +86,17 @@ Then reference the compiled binary:
 
 SSH Exoman includes built-in command filtering to prevent accidental destructive operations.
 
+### Agent Forwarding Security
+
+Only use `forwardAgent` on trusted hosts. Root users on remote systems can access your forwarded agent socket and authenticate to other servers using your credentials.
+
+### Agent Forwarding Usage
+
+Use agent forwarding when you need to authenticate from a remote host using your local SSH keys:
+
+- **SCP/rsync hops**: Transfer files between remote servers without copying private keys. Your local key authenticates both connections.
+- **Git clone on remote**: Clone private repositories on a jump host using your local credentials.
+
 ### Default Blacklist (36 patterns)
 
 Blocks dangerous commands including:
