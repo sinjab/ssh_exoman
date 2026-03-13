@@ -52,13 +52,15 @@ export interface ExecuteResult {
  * @param command - The command to execute
  * @param config - Application configuration (security mode, timeouts, etc.)
  * @param processManager - The ProcessManager instance to track this process
+ * @param forwardAgent - Whether to enable SSH agent forwarding (default: false)
  * @returns Promise resolving to Result with processId on success
  */
 export async function executeSSHCommand(
   hostAlias: string,
   command: string,
   config: AppConfig,
-  processManager: ProcessManager
+  processManager: ProcessManager,
+  forwardAgent: boolean = false
 ): Promise<Result<ExecuteResult>> {
   // Step 1: Security validation
   const securityResult = validateCommandWithResult(command, {
@@ -86,6 +88,7 @@ export async function executeSSHCommand(
     ...hostConfig,
     passphrase: getPassphrase(hostAlias),
     timeout: config.sshConnectTimeout,
+    forwardAgent,
   });
 
   if (!connectionResult.success) {
@@ -99,7 +102,8 @@ export async function executeSSHCommand(
     hostAlias,
     command,
     null, // channel will be set after exec
-    connection.client
+    connection.client,
+    forwardAgent
   );
 
   // Step 5: Execute command
