@@ -46,15 +46,15 @@ Plans:
 **Goal**: Users understand the security implications and proper usage of agent forwarding
 **Depends on**: Phase 4
 **Requirements**: DOCS-01, DOCS-02
-**Plans**: TBD
+**Plans**: 2 plans in 1 wave
 
 **Success Criteria** (what must be TRUE):
   1. User sees security warning in README about agent forwarding risks on untrusted hosts
   2. User gets guidance from `ssh_help` prompt on when and how to use `forwardAgent`
 
 Plans:
-- [ ] 05-01: README security documentation
-- [ ] 05-02: ssh_help prompt update
+- [ ] 05-01-PLAN.md - Add Agent Forwarding Security section to README with warning and usage examples
+- [ ] 05-02-PLAN.md - Add forwardAgent parameter guidance to ssh_help MCP prompt
 
 ## Progress
 
@@ -64,7 +64,7 @@ Phases execute in numeric order: 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 4. Core Agent Forwarding | 2/3 | In progress | 2026-03-13 |
-| 5. Documentation | 0/2 | Not started | - |
+| 5. Documentation | 0/2 | Ready to execute | - |
 
 ---
 *Last updated: 2026-03-13*
