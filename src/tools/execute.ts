@@ -52,13 +52,15 @@ export function registerExecuteCommand(
         deps.logger.info("Executing command", {
           host: params.host,
           command: params.command.substring(0, 100),
+          forwardAgent: params.forwardAgent ?? false,
         });
 
         const result = await executeSSHCommand(
           params.host,
           params.command,
           deps.config,
-          deps.processManager
+          deps.processManager,
+          params.forwardAgent ?? false
         );
 
         return resultToMcpResponse(result);
