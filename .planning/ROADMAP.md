@@ -39,7 +39,7 @@
 
 Plans:
 - [x] 04-01-PLAN.md - Schema and type extensions for forwardAgent parameter
-- [ ] 04-02-PLAN.md - SSH client agent forwarding implementation
+- [x] 04-02-PLAN.md - SSH client agent forwarding implementation
 - [ ] 04-03-PLAN.md - MCP tool layer observability and error handling
 
 ### Phase 5: Documentation
@@ -63,7 +63,7 @@ Phases execute in numeric order: 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 4. Core Agent Forwarding | 1/3 | In progress | 2026-03-13 |
+| 4. Core Agent Forwarding | 2/3 | In progress | 2026-03-13 |
 | 5. Documentation | 0/2 | Not started | - |
 
 ---

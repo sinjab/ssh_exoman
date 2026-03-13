@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: SSH Agent Forwarding
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-03-13T00:59:30Z"
-last_activity: 2026-03-13 — Plan 04-01 complete (Agent Forwarding Types)
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-03-13T01:20:00Z"
+last_activity: 2026-03-13 — Plan 04-02 complete (SSH Agent Forwarding Implementation)
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
-  percent: 33
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 4 of 5 (Core Agent Forwarding)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-03-13 — Plan 04-01 complete (Agent Forwarding Types)
+Last activity: 2026-03-13 — Plan 04-02 complete (SSH Agent Forwarding Implementation)
 
-Progress: [███░░░░░░░░░] 33%
+Progress: [██████░░░░░] 67%
 
 ## Milestone Goals
 
@@ -78,6 +78,9 @@ Progress: [███░░░░░░░░░] 33%
 - No new dependencies required — ssh2 library already supports agent forwarding
 - forwardAgent tracked in ProcessInfo for observability
 - SSH_AGENT_UNAVAILABLE error code for agent unavailable cases
+- validateAgent() checks both SSH_AUTH_SOCK env var AND socket file existence
+- Error messages include Claude Desktop hint for SSH_AUTH_SOCK troubleshooting
+- Both agent AND agentForward must be set in ssh2 config for forwarding to work
 
 ### Pending Todos
 
@@ -89,6 +92,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-13T00:59:30Z
-Stopped at: Completed 04-01-PLAN.md
-Resume file: .planning/phases/04-core-agent-forwarding/04-01-SUMMARY.md
+Last session: 2026-03-13T01:20:00Z
+Stopped at: Completed 04-02-PLAN.md
+Resume file: .planning/phases/04-core-agent-forwarding/04-02-SUMMARY.md
