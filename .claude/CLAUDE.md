@@ -82,8 +82,8 @@ bun run src/index.ts # Run the MCP server directly
 - **get_command_output**: Chunked output retrieval for large results
 - **get_command_status**: Check if command is running/completed
 - **kill_command**: SIGTERM → SIGKILL escalation for process termination
-- **get_security_info**: Inspect current security configuration
 - **resolve_host**: Resolve SSH config alias to actual IP/port/user for multi-hop operations
+- **get_security_info**: Inspect current security configuration
 
 #### Command Execution Flow
 1. `execute_command` validates against security filter (blacklist/whitelist)
