@@ -10,6 +10,7 @@ describe("ErrorCode enum", () => {
     expect(ErrorCode.CONFIG_ERROR).toBe("CONFIG_ERROR");
     expect(ErrorCode.SSH_CONNECTION_FAILED).toBe("SSH_CONNECTION_FAILED");
     expect(ErrorCode.SSH_AUTH_FAILED).toBe("SSH_AUTH_FAILED");
+    expect(ErrorCode.SSH_AGENT_UNAVAILABLE).toBe("SSH_AGENT_UNAVAILABLE");
     expect(ErrorCode.INTERNAL_ERROR).toBe("INTERNAL_ERROR");
   });
 
