@@ -86,7 +86,8 @@ export function validateAgent(): Result<{ socketPath: string }> {
     return errorResult(
       ErrorCode.SSH_AGENT_UNAVAILABLE,
       "SSH agent socket not found. Set SSH_AUTH_SOCK or start ssh-agent. " +
-        "If using Claude Desktop, ensure SSH_AUTH_SOCK is exported in launch environment."
+        "For macOS: launch Claude Desktop from Terminal (`open -a 'Claude'`) to inherit environment. " +
+        "See README.md > Troubleshooting > SSH_AGENT_UNAVAILABLE for more solutions."
     );
   }
 

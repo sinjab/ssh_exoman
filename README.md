@@ -514,24 +514,132 @@ SSH_SECURITYMODE=whitelist
 
 ### SSH_AGENT_UNAVAILABLE
 
-**Error:** `SSH agent is not available`
+**Error:** `SSH agent socket not found. Set SSH_AUTH_SOCK or start ssh-agent.`
 
-**Cause:** ssh-agent not running or `SSH_AUTH_SOCK` environment variable not set.
+**Cause:** ssh-agent not running, or `SSH_AUTH_SOCK` environment variable not propagated to Claude Desktop.
 
-**Solutions:**
+**Why This Happens on macOS:**
+
+macOS GUI apps launched from Finder/Spotlight don't inherit shell environment variables. Claude Desktop won't see your `SSH_AUTH_SOCK` even if ssh-agent is running in your terminal.
+
+**Solution 1: Launch Claude from Terminal (Recommended)**
 
 ```bash
-# Start ssh-agent
-eval "$(ssh-agent -s)"
+# Quit Claude Desktop first, then:
+open -a "Claude"
 
-# Add your key
-ssh-add ~/.ssh/id_ed25519
-
-# Verify agent is working
+# Verify agent is working before launching
 ssh-add -l
 ```
 
-**For macOS launchd:** Environment variables may not propagate. Consider using a launchd wrapper or Keychain integration.
+This inherits your terminal's environment, including `SSH_AUTH_SOCK`.
+
+**Solution 2: Use Passphrase Instead of Agent**
+
+If agent forwarding isn't strictly needed, use passphrase authentication:
+
+```bash
+# Set passphrase in your shell profile (~/.zshrc)
+export SSH_PASSPHRASE_MY_SERVER="your-passphrase"
+```
+
+Then configure Claude Desktop to inherit this:
+
+```json
+{
+  "mcpServers": {
+    "ssh-exoman": {
+      "command": "/bin/bash",
+      "args": ["-lc", "bun run /path/to/ssh_exoman/src/index.ts"]
+    }
+  }
+}
+```
+
+The `-l` flag makes bash act as a login shell, sourcing your profile.
+
+**Solution 3: Use macOS Keychain (Persistent Agent)**
+
+```bash
+# Add key to Keychain (survives reboots)
+ssh-add --apple-use-keychain ~/.ssh/id_ed25519
+
+# Add to ~/.ssh/config for each host:
+Host myserver
+  UseKeychain yes
+  IdentityFile ~/.ssh/id_ed25519
+```
+
+Then launch Claude from Terminal as in Solution 1.
+
+**Solution 4: launchd Wrapper (Advanced)**
+
+Create `~/Library/LaunchAgents/com.user.ssh-agent.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.ssh-agent</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/launchctl</string>
+        <string>setenv</string>
+        <string>SSH_AUTH_SOCK</string>
+        <string>/Users/YOU/.agent-sock</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
+```
+
+This sets SSH_AUTH_SOCK globally at login.
+
+---
+
+### Agent Forwarding: Remote Auth Failed (Exit 255)
+
+**Error:** SCP/SSH command exits with code 255 when using `forwardAgent: true`
+
+**Cause:** Your local agent is forwarded, but the remote command is still failing auth. Common causes:
+
+1. **Using SSH config alias instead of real IP** - Remote servers can't resolve your local aliases
+2. **Key not authorized on destination** - Your forwarded key isn't in `authorized_keys` on the target
+
+**Solution 1: Use resolve_host Before Multi-hop**
+
+```json
+// First resolve the target
+{ "host": "target-server" }
+// Returns: { "hostname": "10.0.0.5", "port": 22, "user": "admin" }
+
+// Then use the REAL IP in your remote command
+{ "host": "jump-host", "command": "scp -P 22 file.txt admin@10.0.0.5:/dest/", "forwardAgent": true }
+```
+
+**Solution 2: Authorize Your Key on Destination**
+
+```bash
+# On jump-host, check which key would be used:
+ssh -v target-server 2>&1 | grep " Offering "
+
+# On target-server, add the public key:
+echo "ssh-ed25519 AAAA... your@local.machine" >> ~/.ssh/authorized_keys
+```
+
+**Solution 3: Debug the Connection**
+
+```bash
+# Run with verbose SSH on the remote:
+ssh jump-host "ssh -vvv user@target ls"
+
+# Check agent forwarding is working:
+ssh -A jump-host "ssh-add -l"
+# Should list your local keys
+```
 
 ---
 
