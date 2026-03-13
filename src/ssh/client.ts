@@ -11,6 +11,7 @@ import * as os from "os";
 import type { HostConfig } from "./config-parser";
 import type { Result } from "../types";
 import { ErrorCode, errorResult } from "../errors";
+import { discoverAgentSocket, type DiscoveredAgent } from "./agent-discovery";
 
 // ============================================================================
 // Passphrase Resolution
@@ -70,35 +71,57 @@ export interface ConnectOptions extends HostConfig {
 // Agent Forwarding
 // ============================================================================
 
+/** Cache for discovered agent socket */
+let cachedAgent: DiscoveredAgent | null = null;
+
 /**
  * Validate that SSH agent is available for forwarding.
  *
- * Checks:
- * 1. SSH_AUTH_SOCK environment variable exists
- * 2. Socket file exists at the path
+ * Uses automatic discovery on macOS when SSH_AUTH_SOCK is not set.
+ *
+ * Discovery order:
+ * 1. SSH_AUTH_SOCK environment variable (preserves existing behavior)
+ * 2. Environment file (~/.config/ssh-exoman/agent-sock)
+ * 3. macOS launchd socket (/private/tmp/com.apple.launchd.XXX/Listeners)
+ * 4. Standard Unix socket paths (/tmp/ssh-XXX/agent.NNN)
  *
  * @returns Result with socketPath on success, SSH_AGENT_UNAVAILABLE error on failure
  */
-export function validateAgent(): Result<{ socketPath: string }> {
-  const socketPath = process.env.SSH_AUTH_SOCK;
+export async function validateAgent(): Promise<Result<{ socketPath: string }>> {
+  // Use cached socket if available and still valid
+  if (cachedAgent) {
+    try {
+      if (fs.existsSync(cachedAgent.socketPath) && fs.statSync(cachedAgent.socketPath).isSocket()) {
+        return { success: true, data: { socketPath: cachedAgent.socketPath } };
+      }
+    } catch {
+      // Cache invalid, re-discover
+    }
+    cachedAgent = null;
+  }
 
-  if (!socketPath) {
+  // Discover socket
+  const discovered = await discoverAgentSocket();
+
+  if (!discovered) {
     return errorResult(
       ErrorCode.SSH_AGENT_UNAVAILABLE,
-      "SSH agent socket not found. Set SSH_AUTH_SOCK or start ssh-agent. " +
-        "For macOS: launch Claude Desktop from Terminal (`open -a 'Claude'`) to inherit environment. " +
-        "See README.md > Troubleshooting > SSH_AGENT_UNAVAILABLE for more solutions."
+      "SSH agent socket not found. " +
+        "On macOS, ensure ssh-agent is running (it starts automatically). " +
+        "On Linux, run: eval \"$(ssh-agent -s)\" && ssh-add ~/.ssh/id_ed25519"
     );
   }
 
-  if (!fs.existsSync(socketPath)) {
-    return errorResult(
-      ErrorCode.SSH_AGENT_UNAVAILABLE,
-      `SSH agent socket not found at ${socketPath}. Ensure ssh-agent is running.`
-    );
-  }
+  cachedAgent = discovered;
+  return { success: true, data: { socketPath: discovered.socketPath } };
+}
 
-  return { success: true, data: { socketPath } };
+/**
+ * Clear the agent discovery cache.
+ * Useful when the agent socket may have changed.
+ */
+export function clearAgentCache(): void {
+  cachedAgent = null;
 }
 
 // ============================================================================
@@ -114,18 +137,19 @@ export function validateAgent(): Result<{ socketPath: string }> {
 export async function connect(
   options: ConnectOptions
 ): Promise<Result<SSHConnection>> {
+  // Validate agent availability if forwarding requested (async discovery)
+  let agentSocketPath: string | undefined;
+  if (options.forwardAgent) {
+    const agentResult = await validateAgent();
+    if (!agentResult.success) {
+      return agentResult as Result<SSHConnection>;
+    }
+    agentSocketPath = agentResult.data.socketPath;
+  }
+
   return new Promise((resolve) => {
     const client = new Client();
     const { passphrase, timeout = 30000, forwardAgent = false, ...hostConfig } = options;
-
-    // Validate agent availability if forwarding requested
-    if (forwardAgent) {
-      const agentResult = validateAgent();
-      if (!agentResult.success) {
-        resolve(agentResult as Result<SSHConnection>);
-        return;
-      }
-    }
 
     client.on("ready", () => {
       resolve({
@@ -199,9 +223,9 @@ export async function connect(
       }
     }
 
-    // Add agent forwarding if requested (requires BOTH options)
-    if (forwardAgent) {
-      connectConfig.agent = process.env.SSH_AUTH_SOCK;
+    // Add agent forwarding if requested (uses discovered socket path)
+    if (forwardAgent && agentSocketPath) {
+      connectConfig.agent = agentSocketPath;
       connectConfig.agentForward = true;
     }
 

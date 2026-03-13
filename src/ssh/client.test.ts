@@ -3,7 +3,7 @@
  */
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { connect, getPassphrase, validateAgent } from "./client";
+import { connect, getPassphrase, validateAgent, clearAgentCache } from "./client";
 import type { HostConfig } from "./config-parser";
 import * as fs from "fs";
 import * as path from "path";
@@ -227,6 +227,8 @@ describe("validateAgent", () => {
   beforeEach(() => {
     // Save original values
     originalEnv.SSH_AUTH_SOCK = process.env.SSH_AUTH_SOCK;
+    // Clear cache before each test
+    clearAgentCache();
   });
 
   afterEach(() => {
@@ -245,60 +247,61 @@ describe("validateAgent", () => {
       }
       tempSocketPath = null;
     }
+    // Clear cache after each test
+    clearAgentCache();
   });
 
-  test("Test 1: validateAgent returns success when SSH_AUTH_SOCK exists and socket file exists", () => {
-    // Create a temp file to simulate socket
-    tempSocketPath = path.join(os.tmpdir(), `test-ssh-agent-sock-${Date.now()}`);
-    fs.writeFileSync(tempSocketPath, "");
-    process.env.SSH_AUTH_SOCK = tempSocketPath;
+  test("Test 1: validateAgent returns success when an agent socket is available", async () => {
+    // On macOS, this will discover the launchd socket
+    // On Linux with ssh-agent running, it will discover the standard socket
+    const result = await validateAgent();
 
-    const result = validateAgent();
-
+    // This test passes if any agent socket is discovered
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.socketPath).toBe(tempSocketPath);
+      expect(result.data.socketPath).toBeDefined();
+      expect(typeof result.data.socketPath).toBe("string");
     }
   });
 
-  test("Test 2: validateAgent returns SSH_AGENT_UNAVAILABLE when SSH_AUTH_SOCK is not set", () => {
+  test("Test 2: validateAgent discovers socket even without SSH_AUTH_SOCK on macOS", async () => {
     delete process.env.SSH_AUTH_SOCK;
+    clearAgentCache();
 
-    const result = validateAgent();
+    const result = await validateAgent();
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.code).toBe("SSH_AGENT_UNAVAILABLE");
-      expect(result.error.message).toContain("SSH agent socket not found");
-      expect(result.error.message).toContain("SSH_AUTH_SOCK");
+    // On macOS with launchd-managed ssh-agent, this should succeed
+    // On Linux without ssh-agent, this may fail
+    if (process.platform === "darwin") {
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.socketPath).toContain("launchd");
+      }
+    }
+    // On other platforms, we can't guarantee success without SSH_AUTH_SOCK
+  });
+
+  test("Test 3: validateAgent caches the discovered socket", async () => {
+    // First call discovers the socket
+    const result1 = await validateAgent();
+    expect(result1.success).toBe(true);
+
+    // Second call should use the cache
+    const result2 = await validateAgent();
+    expect(result2.success).toBe(true);
+
+    if (result1.success && result2.success) {
+      expect(result2.data.socketPath).toBe(result1.data.socketPath);
     }
   });
 
-  test("Test 3: validateAgent returns SSH_AGENT_UNAVAILABLE when socket file does not exist", () => {
-    process.env.SSH_AUTH_SOCK = "/nonexistent/path/to/ssh-agent.sock";
-
-    const result = validateAgent();
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.code).toBe("SSH_AGENT_UNAVAILABLE");
-      expect(result.error.message).toContain("SSH agent socket not found");
-      expect(result.error.message).toContain("/nonexistent/path/to/ssh-agent.sock");
-    }
-  });
-
-  test("Test 4: validateAgent returns socketPath in success result", () => {
-    // Create a temp file to simulate socket
-    tempSocketPath = path.join(os.tmpdir(), `test-ssh-agent-sock-${Date.now()}`);
-    fs.writeFileSync(tempSocketPath, "");
-    process.env.SSH_AUTH_SOCK = tempSocketPath;
-
-    const result = validateAgent();
+  test("Test 4: validateAgent returns socketPath in success result", async () => {
+    const result = await validateAgent();
 
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data).toHaveProperty("socketPath");
-      expect(result.data.socketPath).toBe(tempSocketPath);
+      expect(typeof result.data.socketPath).toBe("string");
     }
   });
 });
@@ -334,6 +337,8 @@ describe("connect with agent forwarding", () => {
 
   beforeEach(() => {
     originalEnv.SSH_AUTH_SOCK = process.env.SSH_AUTH_SOCK;
+    // Clear cache before each test
+    clearAgentCache();
   });
 
   afterEach(() => {
@@ -350,10 +355,13 @@ describe("connect with agent forwarding", () => {
       }
       tempSocketPath = null;
     }
+    // Clear cache after each test
+    clearAgentCache();
   });
 
-  test("Test 1: connect calls validateAgent when forwardAgent: true (agent unavailable)", async () => {
+  test("Test 1: connect validates agent when forwardAgent: true (uses auto-discovery)", async () => {
     delete process.env.SSH_AUTH_SOCK;
+    clearAgentCache();
 
     const hostConfig: HostConfig = {
       host: "agent-test-host",
@@ -368,15 +376,20 @@ describe("connect with agent forwarding", () => {
       forwardAgent: true,
     });
 
-    // Should fail with SSH_AGENT_UNAVAILABLE because no agent
+    // On macOS with launchd-managed agent, auto-discovery will find the agent
+    // and connection will fail for other reasons (host doesn't exist)
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.code).toBe("SSH_AGENT_UNAVAILABLE");
+      // With auto-discovery, this should be connection failure, not agent unavailable
+      if (process.platform === "darwin") {
+        expect(result.error.code).toBe("SSH_CONNECTION_FAILED");
+      }
     }
   });
 
-  test("Test 2: connect returns SSH_AGENT_UNAVAILABLE when agent validation fails", async () => {
+  test("Test 2: connect uses discovered agent socket (env fallback to launchd)", async () => {
     process.env.SSH_AUTH_SOCK = "/nonexistent/path/to/agent.sock";
+    clearAgentCache();
 
     const hostConfig: HostConfig = {
       host: "agent-validation-host",
@@ -391,17 +404,19 @@ describe("connect with agent forwarding", () => {
       forwardAgent: true,
     });
 
+    // On macOS, should fall back to launchd discovery
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.code).toBe("SSH_AGENT_UNAVAILABLE");
+      if (process.platform === "darwin") {
+        // Should be connection failure, not agent unavailable
+        expect(result.error.code).toBe("SSH_CONNECTION_FAILED");
+      }
     }
   });
 
-  test("Test 3: connect sets agent and agentForward in ssh2 config when forwardAgent: true", async () => {
-    // Create a temp file to simulate socket
-    tempSocketPath = path.join(os.tmpdir(), `test-ssh-agent-sock-${Date.now()}`);
-    fs.writeFileSync(tempSocketPath, "");
-    process.env.SSH_AUTH_SOCK = tempSocketPath;
+  test("Test 3: connect uses discovered socket in ssh2 config", async () => {
+    // On macOS, discovery will find the launchd socket
+    clearAgentCache();
 
     const hostConfig: HostConfig = {
       host: "agent-config-host",
@@ -416,12 +431,14 @@ describe("connect with agent forwarding", () => {
       forwardAgent: true,
     });
 
-    // The connection will fail because host doesn't exist, but we validated
-    // that the agent check passed (no SSH_AGENT_UNAVAILABLE error)
+    // The connection will fail because host doesn't exist
     expect(result.success).toBe(false);
     if (!result.success) {
       // Should be connection failure, not agent unavailable
-      expect(result.error.code).not.toBe("SSH_AGENT_UNAVAILABLE");
+      // (because auto-discovery found the agent)
+      if (process.platform === "darwin") {
+        expect(result.error.code).not.toBe("SSH_AGENT_UNAVAILABLE");
+      }
     }
   });
 

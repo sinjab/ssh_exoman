@@ -145,11 +145,27 @@ Then reference the compiled binary:
 
 ### macOS launchd Considerations
 
-When Claude Desktop is launched via launchd (default on macOS), environment variables like `SSH_AUTH_SOCK` may not be available. To use agent forwarding:
+When Claude Desktop is launched via Finder/Spotlight (default on macOS), environment variables like `SSH_AUTH_SOCK` may not be available. **However, SSH Exoman now includes automatic agent discovery** that finds the SSH agent socket without requiring `SSH_AUTH_SOCK`.
 
-1. Create `~/.claude/claude_desktop_config.json` with your MCP config
-2. Ensure ssh-agent is running: `eval "$(ssh-agent -s)"`
-3. Or set `SSH_AUTH_SOCK` in a launchd plist wrapper
+**Automatic Discovery (No Configuration Required)**
+
+SSH Exoman automatically discovers your SSH agent using multiple strategies:
+
+1. **SSH_AUTH_SOCK** environment variable (if set)
+2. **Environment file** at `~/.config/ssh-exoman/agent-sock` (optional)
+3. **macOS launchd socket** at `/private/tmp/com.apple.launchd.XXX/Listeners`
+4. **Standard Unix sockets** at `/tmp/ssh-XXX/agent.NNN`
+
+On macOS, the launchd-managed agent is automatically discovered when Claude Desktop is launched from Finder. No manual configuration required.
+
+**For Linux/Other Platforms**
+
+If `SSH_AUTH_SOCK` isn't set, ensure ssh-agent is running:
+
+```bash
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+```
 
 ## Tool Reference
 
@@ -514,89 +530,45 @@ SSH_SECURITYMODE=whitelist
 
 ### SSH_AGENT_UNAVAILABLE
 
-**Error:** `SSH agent socket not found. Set SSH_AUTH_SOCK or start ssh-agent.`
+**Error:** `SSH agent socket not found. On macOS, ensure ssh-agent is running. On Linux, run: eval "$(ssh-agent -s)" && ssh-add ~/.ssh/id_ed25519`
 
-**Cause:** ssh-agent not running, or `SSH_AUTH_SOCK` environment variable not propagated to Claude Desktop.
+**Cause:** ssh-agent is not running or its socket cannot be found.
 
-**Why This Happens on macOS:**
+**Automatic Discovery**
 
-macOS GUI apps launched from Finder/Spotlight don't inherit shell environment variables. Claude Desktop won't see your `SSH_AUTH_SOCK` even if ssh-agent is running in your terminal.
+SSH Exoman automatically discovers your SSH agent using multiple strategies:
 
-**Solution 1: Launch Claude from Terminal (Recommended)**
+| Priority | Source | Platform |
+|----------|--------|----------|
+| 1 | `SSH_AUTH_SOCK` env var | All |
+| 2 | `~/.config/ssh-exoman/agent-sock` file | All |
+| 3 | `/private/tmp/com.apple.launchd.XXX/Listeners` | macOS only |
+| 4 | `/tmp/ssh-XXX/agent.NNN` | Linux/Unix |
 
-```bash
-# Quit Claude Desktop first, then:
-open -a "Claude"
+**On macOS:** The launchd-managed agent socket is automatically discovered. No configuration required when launching Claude from Finder.
 
-# Verify agent is working before launching
-ssh-add -l
-```
-
-This inherits your terminal's environment, including `SSH_AUTH_SOCK`.
-
-**Solution 2: Use Passphrase Instead of Agent**
-
-If agent forwarding isn't strictly needed, use passphrase authentication:
+**On Linux:** If you still see this error, ensure ssh-agent is running:
 
 ```bash
-# Set passphrase in your shell profile (~/.zshrc)
-export SSH_PASSPHRASE_MY_SERVER="your-passphrase"
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
 ```
 
-Then configure Claude Desktop to inherit this:
+**Manual Socket Path (Optional)**
 
-```json
-{
-  "mcpServers": {
-    "ssh-exoman": {
-      "command": "/bin/bash",
-      "args": ["-lc", "bun run /path/to/ssh_exoman/src/index.ts"]
-    }
-  }
-}
-```
-
-The `-l` flag makes bash act as a login shell, sourcing your profile.
-
-**Solution 3: Use macOS Keychain (Persistent Agent)**
+If automatic discovery doesn't work, you can create an environment file:
 
 ```bash
-# Add key to Keychain (survives reboots)
-ssh-add --apple-use-keychain ~/.ssh/id_ed25519
+# Find your agent socket
+ls /tmp/ssh-*/agent.*
 
-# Add to ~/.ssh/config for each host:
-Host myserver
-  UseKeychain yes
-  IdentityFile ~/.ssh/id_ed25519
+# Or on macOS
+ls /private/tmp/com.apple.launchd.*/Listeners
+
+# Create the config file
+mkdir -p ~/.config/ssh-exoman
+echo "/path/to/your/agent.sock" > ~/.config/ssh-exoman/agent-sock
 ```
-
-Then launch Claude from Terminal as in Solution 1.
-
-**Solution 4: launchd Wrapper (Advanced)**
-
-Create `~/Library/LaunchAgents/com.user.ssh-agent.plist`:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.user.ssh-agent</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/bin/launchctl</string>
-        <string>setenv</string>
-        <string>SSH_AUTH_SOCK</string>
-        <string>/Users/YOU/.agent-sock</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-</dict>
-</plist>
-```
-
-This sets SSH_AUTH_SOCK globally at login.
 
 ---
 
@@ -831,6 +803,7 @@ src/
     ├── client.ts         # SSH connection, passphrase resolution
     ├── executor.ts       # Command execution with output streaming
     ├── config-parser.ts  # SSH config parser (~/.ssh/config)
+    ├── agent-discovery.ts # SSH agent socket discovery (auto-discovery)
     ├── command-detection.ts
     └── process-manager.ts
 ```
