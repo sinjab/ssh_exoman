@@ -60,6 +60,7 @@ export {
   GetCommandStatusSchema,
   KillCommandSchema,
   GetSecurityInfoSchema,
+  ResolveHostSchema,
   validateInput,
 } from "./schemas";
 export type {
@@ -68,6 +69,7 @@ export type {
   GetCommandStatusInput,
   KillCommandInput,
   GetSecurityInfoInput,
+  ResolveHostInput,
 } from "./schemas";
 
 // ============================================================================

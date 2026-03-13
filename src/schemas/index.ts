@@ -11,6 +11,7 @@ export { GetCommandOutputSchema, type GetCommandOutputInput } from "./get-comman
 export { GetCommandStatusSchema, type GetCommandStatusInput } from "./get-command-status";
 export { KillCommandSchema, type KillCommandInput } from "./kill-command";
 export { GetSecurityInfoSchema, type GetSecurityInfoInput } from "./get-security-info";
+export { ResolveHostSchema, type ResolveHostInput } from "./resolve-host";
 
 // Validation helper
 import { z } from "zod";

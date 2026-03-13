@@ -13,6 +13,7 @@ import { registerGetOutput } from "./tools/output";
 import { registerGetStatus } from "./tools/status";
 import { registerKillCommand } from "./tools/kill";
 import { registerSecurityInfo } from "./tools/security-info";
+import { registerResolveHost } from "./tools/resolve";
 import { registerHostsResource } from "./resources/hosts";
 import { registerHelpPrompt } from "./prompts/help";
 
@@ -58,6 +59,7 @@ export function createServer(): McpServer {
     config,
     logger,
   });
+  registerResolveHost(server);
 
   // Register resource and prompt
   registerHostsResource(server);
@@ -70,6 +72,7 @@ export function createServer(): McpServer {
       "get_command_status",
       "kill_command",
       "get_security_info",
+      "resolve_host",
     ],
     resources: ["ssh://hosts"],
     prompts: ["ssh_help"],

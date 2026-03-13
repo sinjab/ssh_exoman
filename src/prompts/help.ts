@@ -39,7 +39,10 @@ export function registerHelpPrompt(server: McpServer): void {
 ## Available Tools
 
 1. **execute_command** - Run a command on a remote host via SSH
-   - Parameters: host (string), command (string), timeout (number, optional), forwardAgent (boolean, optional, default: false) - Forward local SSH agent to remote host. Allows remote commands to authenticate with other SSH servers using your local keys. Only enable on fully trusted hosts.
+   - Parameters: host (string), command (string), timeout (number, optional), forwardAgent (boolean, optional, default: false)
+   - forwardAgent: Forward local SSH agent to remote host. Allows remote commands to authenticate with other SSH servers using your local keys. Only enable on fully trusted hosts.
+
+   **IMPORTANT for forwardAgent**: When using agent forwarding for multi-hop SSH/SCP commands, use the actual IP address or resolved hostname - NOT SSH config aliases. Aliases like "my-server" only exist in your local ~/.ssh/config and won't resolve on the remote server. Use \`resolve_host\` tool to get the actual hostname/IP for a given alias.
 
 2. **get_command_status** - Check if a command is still running
    - Parameters: process_id (UUID string)
@@ -52,6 +55,11 @@ export function registerHelpPrompt(server: McpServer): void {
 
 5. **get_security_info** - View current security settings
    - Parameters: none
+
+6. **resolve_host** - Resolve SSH config alias to actual connection details
+   - Parameters: host (string) - SSH config alias
+   - Returns: { alias, hostname, port, user }
+   - Use this before multi-hop SSH/SCP to get the real address remote servers can connect to.
 
 ## Typical Workflow
 
@@ -69,6 +77,22 @@ export function registerHelpPrompt(server: McpServer): void {
 
 4. If needed, kill the process:
    \`kill_command(process_id="uuid...", force=false)\`
+
+## Multi-hop SSH/SCP Example
+
+When copying files between remote servers with \`forwardAgent: true\`:
+
+\`\`\`
+# First, resolve the target host alias to get the real IP
+resolve_host(host="art.cp1.afrhkom") → { hostname: "5.39.70.214", port: 2274, user: "afrhkom" }
+
+# Then use the resolved IP in the remote SCP command (NOT the alias!)
+execute_command(
+  host="art.afrhkom.afrhkom",
+  command="scp -P 2274 /path/to/file afrhkom@5.39.70.214:/destination/",
+  forwardAgent=true
+)
+\`\`\`
 
 ## Error Handling
 
